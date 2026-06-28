@@ -27,8 +27,9 @@ export default function LiveReportPage() {
               Reporte en vivo de fuentes por placa
             </h1>
             <p className="mt-5 max-w-3xl text-base leading-7 text-white/75">
-              Consulta la placa, valida portales oficiales, detecta bloqueos
-              reales y genera un resumen operativo listo para entregar.
+              Consulta la placa contra el gateway de integraciones, proveedores
+              API, workers y fuentes oficiales, con trazabilidad lista para
+              reporte.
             </p>
           </div>
         </section>

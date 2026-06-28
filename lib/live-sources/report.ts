@@ -16,11 +16,12 @@ type LiveReportInput = {
 };
 
 const pendingStatuses = new Set([
-  "blocked_by_captcha",
-  "manual_assisted",
-  "session_required",
-  "paid_or_partner",
-  "blocked",
+  "api_credentials_missing",
+  "worker_candidate",
+  "portal_protected",
+  "session_protected",
+  "partner_required",
+  "matrix_required",
   "unavailable",
   "failed"
 ]);
@@ -34,13 +35,24 @@ function buildMetrics(sources: LiveSourceCheck[]): LiveReportMetrics {
   return {
     total: sources.length,
     checked,
-    onlineOrProtected,
-    blockedByCaptcha: sources.filter(
-      (source) => source.status === "blocked_by_captcha"
+    apiResults: sources.filter((source) => source.status === "api_result").length,
+    providersConfigured: sources.filter((source) => source.providerConfigured).length,
+    credentialMissing: sources.filter(
+      (source) => source.status === "api_credentials_missing"
     ).length,
-    manualAssisted: sources.filter((source) => source.status === "manual_assisted").length,
-    sessionRequired: sources.filter((source) => source.status === "session_required").length,
-    paidOrPartner: sources.filter((source) => source.status === "paid_or_partner").length,
+    workerCandidates: sources.filter(
+      (source) => source.status === "worker_candidate"
+    ).length,
+    protectedPortals: sources.filter((source) =>
+      ["portal_protected", "session_protected"].includes(source.status)
+    ).length,
+    partnerRequired: sources.filter(
+      (source) => source.status === "partner_required"
+    ).length,
+    matrixRequired: sources.filter(
+      (source) => source.status === "matrix_required"
+    ).length,
+    onlineOrProtected,
     unavailable: sources.filter((source) => source.status === "unavailable").length,
     completionRate: sources.length ? Math.round((checked / sources.length) * 100) : 0
   };
@@ -54,7 +66,7 @@ function recommendationForLiveScore(
     return "Pedir documentos";
   }
 
-  if (metrics.blockedByCaptcha + metrics.sessionRequired >= 3) {
+  if (metrics.credentialMissing + metrics.protectedPortals >= 3) {
     return "Pedir documentos";
   }
 
@@ -83,37 +95,43 @@ function assessLiveReportRisk(
   const positiveFactors: string[] = [];
   const pendingFactors: string[] = [];
 
+  if (metrics.apiResults > 0) {
+    positiveFactors.push(
+      `${metrics.apiResults} fuentes devolvieron datos por API/proveedor.`
+    );
+  }
+
   if (metrics.onlineOrProtected > 0) {
     positiveFactors.push(
       `${metrics.onlineOrProtected} fuentes oficiales respondieron o estan protegidas activamente.`
     );
   }
 
-  if (metrics.blockedByCaptcha > 0) {
-    score += Math.min(24, metrics.blockedByCaptcha * 4);
+  if (metrics.credentialMissing > 0) {
+    score += Math.min(28, metrics.credentialMissing * 4);
     pendingFactors.push(
-      `${metrics.blockedByCaptcha} fuentes criticas requieren validacion humana por CAPTCHA.`
+      `${metrics.credentialMissing} fuentes requieren credenciales de proveedor API.`
     );
   }
 
-  if (metrics.sessionRequired > 0) {
-    score += metrics.sessionRequired * 5;
+  if (metrics.protectedPortals > 0) {
+    score += metrics.protectedPortals * 5;
     pendingFactors.push(
-      `${metrics.sessionRequired} fuente requiere sesion web dinamica.`
+      `${metrics.protectedPortals} fuentes estan protegidas por sesion o control antiabuso.`
     );
   }
 
-  if (metrics.manualAssisted > 0) {
-    score += Math.min(14, metrics.manualAssisted * 3);
+  if (metrics.workerCandidates > 0) {
+    score += Math.min(14, metrics.workerCandidates * 3);
     pendingFactors.push(
-      `${metrics.manualAssisted} fuentes quedan como revision manual asistida.`
+      `${metrics.workerCandidates} fuentes son candidatas a worker con evidencia automatizada.`
     );
   }
 
-  if (metrics.paidOrPartner > 0) {
-    score += metrics.paidOrPartner * 4;
+  if (metrics.partnerRequired > 0) {
+    score += metrics.partnerRequired * 4;
     pendingFactors.push(
-      `${metrics.paidOrPartner} fuente requiere pago, cuenta o convenio.`
+      `${metrics.partnerRequired} fuente requiere partner/API con control de costo.`
     );
   }
 
@@ -124,20 +142,20 @@ function assessLiveReportRisk(
     );
   }
 
-  if (sources.some((source) => source.status === "blocked")) {
+  if (metrics.matrixRequired > 0) {
     score += 6;
     pendingFactors.push(
-      "La cobertura provincial requiere matriz por ciudad; no hay fuente unica nacional."
+      "La cobertura provincial requiere motor de matriz por ciudad."
     );
   }
 
   alerts.push(
-    "No se confirmaron alertas vehiculares reales todavia; las fuentes criticas requieren evidencia oficial."
+    "No se confirmaron alertas vehiculares reales por API todavia; faltan credenciales o proveedores en fuentes criticas."
   );
 
-  if (metrics.blockedByCaptcha > 0) {
+  if (metrics.credentialMissing + metrics.protectedPortals > 0) {
     alerts.push(
-      "SUNARP, SOAT, CITV, Callao o GNV pueden requerir CAPTCHA; el sistema no lo salta ni simula resultados."
+      "SUNARP, SOAT, CITV, SAT, Callao o GNV deben resolverse con API/proveedor/worker autorizado, no con simulacion."
     );
   }
 
@@ -171,12 +189,20 @@ function buildSummary(
   const pendingSources = sources
     .filter((source) => pendingStatuses.has(source.status))
     .map((source) => source.sourceName);
-  const blockedCaptcha = sources
-    .filter((source) => source.status === "blocked_by_captcha")
+  const integrationRequired = sources
+    .filter((source) =>
+      [
+        "api_credentials_missing",
+        "portal_protected",
+        "session_protected",
+        "partner_required",
+        "matrix_required"
+      ].includes(source.status)
+    )
     .map((source) => source.sourceName);
   const headline =
     `Reporte tecnico generado para ${plate}: ${metrics.checked}/${metrics.total} fuentes revisadas y ` +
-    `${metrics.onlineOrProtected} portales oficiales respondieron o estan protegidos.`;
+    `${metrics.apiResults} fuentes con datos API estructurados.`;
   const whatsappText = [
     "Reporte Compra Segura Vehicular",
     `Placa: ${plate}`,
@@ -185,16 +211,18 @@ function buildSummary(
       timeZone: "America/Lima"
     })}`,
     `Fuentes revisadas: ${metrics.checked}/${metrics.total}`,
-    `Portales online/protegidos: ${metrics.onlineOrProtected}`,
+    `Datos API recibidos: ${metrics.apiResults}`,
+    `Proveedores configurados: ${metrics.providersConfigured}`,
+    `Integraciones pendientes: ${metrics.credentialMissing + metrics.protectedPortals + metrics.partnerRequired + metrics.matrixRequired}`,
     `Riesgo preliminar: ${risk.level} (${risk.score}/100)`,
     `Recomendacion: ${risk.recommendation}`,
-    blockedCaptcha.length
-      ? `Validacion humana requerida: ${blockedCaptcha.join(", ")}`
-      : "Validacion humana requerida: sin bloqueos por CAPTCHA registrados",
+    integrationRequired.length
+      ? `Resolver con API/proveedor: ${integrationRequired.join(", ")}`
+      : "Resolver con API/proveedor: sin pendientes criticos",
     pendingSources.length
-      ? `Pendientes: ${pendingSources.join(", ")}`
-      : "Pendientes: ninguno",
-    "Nota: no se simulan datos ni se saltan CAPTCHA; el resultado final exige evidencia oficial por fuente."
+      ? `Pendientes tecnologicos: ${pendingSources.join(", ")}`
+      : "Pendientes tecnologicos: ninguno",
+    "Nota: el sistema queda listo para tokens/proveedores reales; no simula datos ni usa bypass antiabuso."
   ].join("\n");
 
   return {
@@ -213,13 +241,16 @@ function buildSummary(
         content: `${headline} Riesgo preliminar ${risk.level} con recomendacion: ${risk.recommendation}.`
       },
       {
-        title: "Fuentes revisadas",
+        title: "Fuentes e integraciones",
         content: sources
-          .map((source) => `${source.sourceName}: ${source.status}`)
+          .map(
+            (source) =>
+              `${source.sourceName}: ${source.status} via ${source.integrationMode}`
+          )
           .join(" | ")
       },
       {
-        title: "Pendientes operativos",
+        title: "Pendientes tecnologicos",
         content:
           pendingSources.join(", ") ||
           "No hay pendientes operativos registrados."

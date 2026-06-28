@@ -23,11 +23,14 @@ type LiveReport = {
   metrics: {
     total: number;
     checked: number;
+    apiResults: number;
+    providersConfigured: number;
+    credentialMissing: number;
+    workerCandidates: number;
+    protectedPortals: number;
+    partnerRequired: number;
+    matrixRequired: number;
     onlineOrProtected: number;
-    blockedByCaptcha: number;
-    manualAssisted: number;
-    sessionRequired: number;
-    paidOrPartner: number;
     unavailable: number;
     completionRate: number;
   };
@@ -46,6 +49,10 @@ type LiveReport = {
     category: string;
     officialUrl: string;
     status: string;
+    integrationMode: string;
+    providerName: string;
+    providerConfigured: boolean;
+    requiredEnv: string[];
     availability: string;
     httpStatus?: number;
     confidence: string;
@@ -55,6 +62,7 @@ type LiveReport = {
     technicalFinding: string;
     limitation: string;
     operatorAction: string;
+    nextTechnologyStep: string;
     evidence: Array<{
       label: string;
       url: string;
@@ -89,24 +97,26 @@ const packageOptions = [
 const packageValues = new Set(["express", "compra_segura", "pro"]);
 
 const statusLabels: Record<string, string> = {
-  source_available: "Disponible",
-  blocked_by_captcha: "CAPTCHA",
-  manual_assisted: "Manual asistida",
-  session_required: "Sesion",
-  paid_or_partner: "Pago/API",
+  api_result: "API conectada",
+  api_credentials_missing: "Falta API key",
+  worker_candidate: "Worker candidato",
+  portal_protected: "Portal protegido",
+  session_protected: "Sesion protegida",
+  partner_required: "Partner/API",
+  matrix_required: "Matriz de datos",
   unavailable: "No disponible",
-  blocked: "Matriz pendiente",
   failed: "Fallida"
 };
 
 const statusClasses: Record<string, string> = {
-  source_available: "border-brand-100 bg-brand-50 text-brand-900",
-  blocked_by_captcha: "border-amber-200 bg-amber-50 text-amber-900",
-  manual_assisted: "border-sky-200 bg-sky-50 text-sky-900",
-  session_required: "border-indigo-200 bg-indigo-50 text-indigo-900",
-  paid_or_partner: "border-violet-200 bg-violet-50 text-violet-900",
+  api_result: "border-brand-100 bg-brand-50 text-brand-900",
+  api_credentials_missing: "border-amber-200 bg-amber-50 text-amber-900",
+  worker_candidate: "border-sky-200 bg-sky-50 text-sky-900",
+  portal_protected: "border-orange-200 bg-orange-50 text-orange-900",
+  session_protected: "border-indigo-200 bg-indigo-50 text-indigo-900",
+  partner_required: "border-violet-200 bg-violet-50 text-violet-900",
+  matrix_required: "border-slate-200 bg-slate-100 text-slate-700",
   unavailable: "border-red-200 bg-red-50 text-redRisk",
-  blocked: "border-slate-200 bg-slate-100 text-slate-700",
   failed: "border-red-200 bg-red-50 text-redRisk"
 };
 
@@ -181,7 +191,8 @@ export function LiveReportRunner({
       track("live_report_generated", {
         package_type: nextPackage,
         total_sources: data.report.metrics.total,
-        blocked_by_captcha: data.report.metrics.blockedByCaptcha
+        credential_missing: data.report.metrics.credentialMissing,
+        api_results: data.report.metrics.apiResults
       });
       setState({ status: "success", report: data.report, copied: false });
       setPlate(data.report.plate);
@@ -280,10 +291,10 @@ export function LiveReportRunner({
         <div className="rounded-md border border-line bg-white p-6 shadow-panel">
           <div className="flex items-center gap-3 text-ink">
             <Loader2 aria-hidden="true" className="animate-spin text-brand-700" size={22} />
-            <div>
-              <p className="font-bold">Consultando fuentes posibles</p>
-              <p className="mt-1 text-sm text-slateText">
-                Validando portales oficiales, protecciones y acciones manuales.
+                <div>
+                  <p className="font-bold">Consultando fuentes posibles</p>
+                  <p className="mt-1 text-sm text-slateText">
+                Ejecutando gateway de integraciones, proveedores y workers.
               </p>
             </div>
           </div>
@@ -329,8 +340,8 @@ export function LiveReportRunner({
                     {state.report.plate}
                   </h2>
                   <p className="mt-2 text-sm leading-6 text-slateText">
-                    Generado para {state.report.packageLabel}. Listo para enviar
-                    por WhatsApp o guardar como base del PDF.
+                    Generado para {state.report.packageLabel}. Listo para
+                    WhatsApp, PDF y conexion con proveedores reales.
                   </p>
                 </div>
                 <button
@@ -356,21 +367,21 @@ export function LiveReportRunner({
                 icon: ShieldCheck
               },
               {
-                label: "Online/protegidas",
-                value: state.report.metrics.onlineOrProtected,
+                label: "Datos API",
+                value: state.report.metrics.apiResults,
                 icon: CheckCircle2
               },
               {
-                label: "CAPTCHA",
-                value: state.report.metrics.blockedByCaptcha,
+                label: "Faltan keys",
+                value: state.report.metrics.credentialMissing,
                 icon: AlertTriangle
               },
               {
-                label: "Manual/API",
+                label: "Workers/partners",
                 value:
-                  state.report.metrics.manualAssisted +
-                  state.report.metrics.paidOrPartner +
-                  state.report.metrics.sessionRequired,
+                  state.report.metrics.workerCandidates +
+                  state.report.metrics.partnerRequired +
+                  state.report.metrics.matrixRequired,
                 icon: FileText
               }
             ] satisfies MetricCard[]).map((item) => {
@@ -394,9 +405,9 @@ export function LiveReportRunner({
             <div className="flex gap-3">
               <AlertTriangle aria-hidden="true" className="mt-0.5 shrink-0" size={19} />
               <p>
-                Este reporte valida fuentes y prepara evidencia. Si una fuente
-                oficial exige CAPTCHA, sesion o pago, se marca como tal: no se
-                inventan datos y no se salta ninguna proteccion.
+                Este reporte ya usa una capa de integracion. Cuando agregues
+                tokens de proveedor, la misma pantalla recibira datos
+                estructurados sin cambiar la experiencia del usuario.
               </p>
             </div>
           </div>
@@ -419,7 +430,13 @@ export function LiveReportRunner({
                         {statusLabels[source.status] ?? source.status}
                       </span>
                       <span className="rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-bold text-slateText">
-                        {source.availability}
+                        {source.integrationMode}
+                      </span>
+                      <span className="rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-bold text-slateText">
+                        {source.providerConfigured ? "provider on" : "provider off"}
+                      </span>
+                      <span className="rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-bold text-slateText">
+                        portal {source.availability}
                         {source.httpStatus ? ` ${source.httpStatus}` : ""}
                       </span>
                       <span className="rounded-md border border-line bg-surface px-2.5 py-1 text-xs font-bold text-slateText">
@@ -432,6 +449,9 @@ export function LiveReportRunner({
                     <p className="mt-2 text-sm leading-6 text-slateText">
                       {source.summary}
                     </p>
+                    <p className="mt-2 text-xs font-bold uppercase tracking-normal text-brand-700">
+                      {source.providerName}
+                    </p>
                   </div>
                   <a
                     href={source.officialUrl}
@@ -439,7 +459,7 @@ export function LiveReportRunner({
                     rel="noreferrer"
                     className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-md border border-line px-4 text-sm font-bold text-ink hover:border-brand-700 hover:text-brand-700"
                   >
-                    Abrir fuente
+                    Fuente oficial
                     <ExternalLink aria-hidden="true" size={17} />
                   </a>
                 </div>
@@ -452,15 +472,18 @@ export function LiveReportRunner({
                     </p>
                   </div>
                   <div className="rounded-md bg-surface p-4">
-                    <p className="text-sm font-bold text-ink">Accion siguiente</p>
+                    <p className="text-sm font-bold text-ink">Siguiente paso tecnologico</p>
                     <p className="mt-2 text-sm leading-6 text-slateText">
-                      {source.operatorAction}
+                      {source.nextTechnologyStep}
                     </p>
                   </div>
                   <div className="rounded-md bg-surface p-4">
-                    <p className="text-sm font-bold text-ink">Datos esperados</p>
+                    <p className="text-sm font-bold text-ink">Contrato de datos</p>
                     <p className="mt-2 text-sm leading-6 text-slateText">
                       {source.fields.join(", ")}
+                    </p>
+                    <p className="mt-3 text-xs leading-5 text-slateText">
+                      Env: {source.requiredEnv.join(", ")}
                     </p>
                   </div>
                 </div>

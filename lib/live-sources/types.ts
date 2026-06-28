@@ -1,14 +1,22 @@
 import type { PackageType, RiskAssessment } from "@/lib/domain";
 
 export type LiveSourceStatus =
-  | "source_available"
-  | "blocked_by_captcha"
-  | "manual_assisted"
-  | "session_required"
-  | "paid_or_partner"
+  | "api_result"
+  | "api_credentials_missing"
+  | "worker_candidate"
+  | "portal_protected"
+  | "session_protected"
+  | "partner_required"
+  | "matrix_required"
   | "unavailable"
-  | "blocked"
   | "failed";
+
+export type IntegrationMode =
+  | "provider_api"
+  | "browser_worker"
+  | "partner_api"
+  | "data_matrix"
+  | "portal_probe";
 
 export type PortalAvailability =
   | "online"
@@ -29,6 +37,10 @@ export type LiveSourceCheck = {
   officialUrl: string;
   plate: string;
   status: LiveSourceStatus;
+  integrationMode: IntegrationMode;
+  providerName: string;
+  providerConfigured: boolean;
+  requiredEnv: string[];
   availability: PortalAvailability;
   httpStatus?: number;
   confidence: "Alta" | "Media" | "Baja";
@@ -38,17 +50,22 @@ export type LiveSourceCheck = {
   technicalFinding: string;
   limitation: string;
   operatorAction: string;
+  nextTechnologyStep: string;
   evidence: LiveSourceEvidence[];
+  providerPayload?: unknown;
 };
 
 export type LiveReportMetrics = {
   total: number;
   checked: number;
+  apiResults: number;
+  providersConfigured: number;
+  credentialMissing: number;
+  workerCandidates: number;
+  protectedPortals: number;
+  partnerRequired: number;
+  matrixRequired: number;
   onlineOrProtected: number;
-  blockedByCaptcha: number;
-  manualAssisted: number;
-  sessionRequired: number;
-  paidOrPartner: number;
   unavailable: number;
   completionRate: number;
 };

@@ -1,16 +1,20 @@
 import type { SourceDefinition } from "@/lib/sources/types";
 import type {
+  IntegrationMode,
   LiveSourceCheck,
   LiveSourceEvidence,
   LiveSourceStatus,
   PortalAvailability
 } from "@/lib/live-sources/types";
 
-type StaticFinding = {
-  status: LiveSourceStatus;
+type IntegrationBlueprint = {
+  statusWhenUnconfigured: LiveSourceStatus;
+  integrationMode: IntegrationMode;
+  providerName: string;
+  requiredEnv: string[];
   technicalFinding: string;
   limitation: string;
-  operatorAction: string;
+  nextTechnologyStep: string;
   evidence: LiveSourceEvidence[];
 };
 
@@ -20,69 +24,95 @@ type PortalCheck = {
   detail: string;
 };
 
+type ProviderCall =
+  | {
+      ok: true;
+      httpStatus: number;
+      payload: unknown;
+      detail: string;
+    }
+  | {
+      ok: false;
+      status: LiveSourceStatus;
+      httpStatus?: number;
+      detail: string;
+    };
+
 const requestHeaders = {
   "user-agent":
     "CompraSeguraVehicular/1.0 (+https://compraseguravehicular.vercel.app)",
   accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
 };
 
-const liveSourceFindings: Record<string, StaticFinding> = {
+const sourceBlueprints: Record<string, IntegrationBlueprint> = {
   sunarp_consulta_vehicular: {
-    status: "blocked_by_captcha",
+    statusWhenUnconfigured: "api_credentials_missing",
+    integrationMode: "provider_api",
+    providerName: "SUNARP API Provider",
+    requiredEnv: ["CSV_SUNARP_API_URL", "CSV_SUNARP_API_KEY"],
     technicalFinding:
-      "La consulta operativa de SUNARP carga proteccion Cloudflare Turnstile y un captcha generado por el portal.",
+      "SUNARP publica consulta por placa con validacion antiabuso en el portal web. La solucion tecnologica estable es API oficial, convenio o proveedor autorizado.",
     limitation:
-      "No se debe saltar CAPTCHA ni automatizar el flujo con tecnicas evasivas. La verificacion final requiere operador o convenio/API permitido.",
-    operatorAction:
-      "Abrir SUNARP Consulta Vehicular, ingresar la placa normalizada, resolver validacion humana y adjuntar evidencia del resultado.",
+      "El portal web no debe usarse como API oculta. Para produccion se requiere contrato/API con cuotas, auditoria y respuesta estructurada.",
+    nextTechnologyStep:
+      "Configurar CSV_SUNARP_API_URL y CSV_SUNARP_API_KEY para recibir datos registrales estructurados por placa.",
     evidence: [
       {
         label: "SUNARP Consulta Vehicular",
         url: "https://consultavehicular.sunarp.gob.pe/",
-        detail: "Fuente oficial para consulta registral vehicular por placa."
+        detail: "Fuente oficial de consulta vehicular por placa."
       }
     ]
   },
   apeseg_soat: {
-    status: "blocked_by_captcha",
+    statusWhenUnconfigured: "api_credentials_missing",
+    integrationMode: "provider_api",
+    providerName: "SOAT API Provider",
+    requiredEnv: ["CSV_SOAT_API_URL", "CSV_SOAT_API_KEY"],
     technicalFinding:
-      "La consulta SOAT de APESEG usa una aplicacion web con captcha para validar la solicitud por placa.",
+      "APESEG expone consulta web de SOAT por placa con validacion antiabuso. La via de producto es API de SOAT o convenio con proveedor.",
     limitation:
-      "No existe API publica confirmada para automatizacion directa desde esta aplicacion. Se debe preservar la evidencia consultada manualmente.",
-    operatorAction:
-      "Consultar SOAT por placa en APESEG, registrar aseguradora, vigencia y captura o constancia disponible.",
+      "Sin token de proveedor no se puede obtener aseguradora, estado o vigencia de forma estructurada y confiable.",
+    nextTechnologyStep:
+      "Configurar CSV_SOAT_API_URL y CSV_SOAT_API_KEY para devolver estado, aseguradora y vigencia.",
     evidence: [
       {
         label: "Consulta SOAT APESEG",
         url: "https://www.apeseg.org.pe/consultas-soat/",
-        detail: "Portal oficial de consulta SOAT/CAT por placa."
+        detail: "Portal de referencia para consulta SOAT/CAT por placa."
       }
     ]
   },
   mtc_citv: {
-    status: "blocked_by_captcha",
+    statusWhenUnconfigured: "api_credentials_missing",
+    integrationMode: "provider_api",
+    providerName: "CITV API Provider",
+    requiredEnv: ["CSV_CITV_API_URL", "CSV_CITV_API_KEY"],
     technicalFinding:
-      "El formulario CITV del MTC incluye campo de captcha y tokens de sesion antes de entregar resultados.",
+      "MTC CITV usa formulario con validacion antiabuso y tokens. La resolucion profesional es API autorizada o proveedor que entregue vigencia CITV.",
     limitation:
-      "La revision tecnica debe consultarse con intervencion humana o integracion autorizada.",
-    operatorAction:
-      "Consultar CITV por placa, registrar fecha de vencimiento, planta, resultado y evidencia.",
+      "Un worker no debe evadir protecciones ni depender de tokens privados del portal.",
+    nextTechnologyStep:
+      "Configurar CSV_CITV_API_URL y CSV_CITV_API_KEY para obtener vencimiento, planta y resultado de inspeccion.",
     evidence: [
       {
         label: "MTC Consulta CITV",
         url: "https://portal.mtc.gob.pe/reportedgtt/form/frmconsultaplacaitv.aspx",
-        detail: "Fuente oficial de certificados de inspeccion tecnica vehicular."
+        detail: "Portal oficial de certificados de inspeccion tecnica vehicular."
       }
     ]
   },
   sat_lima_papeletas: {
-    status: "session_required",
+    statusWhenUnconfigured: "session_protected",
+    integrationMode: "provider_api",
+    providerName: "SAT Lima API Provider",
+    requiredEnv: ["CSV_SAT_LIMA_API_URL", "CSV_SAT_LIMA_API_KEY"],
     technicalFinding:
-      "SAT Lima redirige a un flujo ASP.NET con sesion dinamica. El formulario operativo no queda estable como endpoint publico simple.",
+      "SAT Lima funciona con sesion web dinamica. Para escalar se necesita API, proveedor de datos o integracion autorizada con control de sesiones.",
     limitation:
-      "Automatizarlo exige control de sesion, monitoreo de cambios y validacion legal de uso. Por ahora queda como manual asistida.",
-    operatorAction:
-      "Abrir SAT Lima, consultar papeletas/deuda por placa, registrar monto, estado y si existe captura administrativa.",
+      "No conviene depender de HTML dinamico del SAT para vender reportes de alto volumen.",
+    nextTechnologyStep:
+      "Configurar CSV_SAT_LIMA_API_URL y CSV_SAT_LIMA_API_KEY para devolver papeletas, deuda, estado y captura administrativa.",
     evidence: [
       {
         label: "SAT Lima Papeletas",
@@ -92,13 +122,16 @@ const liveSourceFindings: Record<string, StaticFinding> = {
     ]
   },
   callao_papeletas: {
-    status: "blocked_by_captcha",
+    statusWhenUnconfigured: "api_credentials_missing",
+    integrationMode: "provider_api",
+    providerName: "Callao Papeletas API Provider",
+    requiredEnv: ["CSV_CALLAO_API_URL", "CSV_CALLAO_API_KEY"],
     technicalFinding:
-      "El portal de papeletas Callao exige captcha, CSRF y datos de formulario antes de mostrar resultados.",
+      "Callao usa validacion antiabuso y CSRF en portal web. En produccion se requiere API/proveedor o convenio municipal.",
     limitation:
-      "No se debe automatizar saltando captcha. La evidencia debe capturarse desde el portal oficial.",
-    operatorAction:
-      "Consultar placa en Callao, registrar papeletas, deuda y estado con fecha/hora.",
+      "El flujo web sirve para consulta individual, pero no como backend de producto escalable.",
+    nextTechnologyStep:
+      "Configurar CSV_CALLAO_API_URL y CSV_CALLAO_API_KEY para consultar papeletas y deuda por placa.",
     evidence: [
       {
         label: "Papeletas Callao",
@@ -108,13 +141,16 @@ const liveSourceFindings: Record<string, StaticFinding> = {
     ]
   },
   sutran_infracciones: {
-    status: "manual_assisted",
+    statusWhenUnconfigured: "worker_candidate",
+    integrationMode: "browser_worker",
+    providerName: "SUTRAN Worker",
+    requiredEnv: ["CSV_WORKER_SIGNING_KEY"],
     technicalFinding:
-      "SUTRAN publica servicios y tramites separados; la consulta aplicable depende del tipo de infraccion o servicio.",
+      "SUTRAN publica servicios separados. La solucion es un worker con flujos por servicio, evidencia y monitoreo de cambios.",
     limitation:
-      "Se necesita seleccionar el servicio correcto y documentar la fuente consultada para no mezclar resultados.",
-    operatorAction:
-      "Revisar servicios SUTRAN aplicables a placa, actas o cinemometro y registrar evidencia si corresponde.",
+      "Antes de activar el worker hay que fijar el servicio exacto, selectores, rate limits y esquema de evidencia.",
+    nextTechnologyStep:
+      "Crear flujo Playwright versionado para el servicio SUTRAN aplicable y firmar evidencias con CSV_WORKER_SIGNING_KEY.",
     evidence: [
       {
         label: "SUTRAN",
@@ -124,13 +160,16 @@ const liveSourceFindings: Record<string, StaticFinding> = {
     ]
   },
   atu_infracciones: {
-    status: "manual_assisted",
+    statusWhenUnconfigured: "worker_candidate",
+    integrationMode: "browser_worker",
+    providerName: "ATU Worker",
+    requiredEnv: ["CSV_WORKER_SIGNING_KEY"],
     technicalFinding:
-      "ATU separa informacion por autorizaciones, servicios y sanciones; no se confirmo endpoint unico estable por placa.",
+      "ATU separa datos por autorizaciones, sanciones y servicios. Requiere worker por flujo o API de proveedor.",
     limitation:
-      "Debe revisarse segun tipo de vehiculo y uso probable, especialmente transporte urbano o uso intensivo.",
-    operatorAction:
-      "Validar si la placa figura en autorizaciones, sanciones o servicios ATU y guardar evidencia.",
+      "No hay endpoint unico confirmado por placa para todos los casos de uso.",
+    nextTechnologyStep:
+      "Mapear flujo ATU por tipo de vehiculo y activar worker con evidencia firmada.",
     evidence: [
       {
         label: "ATU",
@@ -140,13 +179,16 @@ const liveSourceFindings: Record<string, StaticFinding> = {
     ]
   },
   aap_placas: {
-    status: "manual_assisted",
+    statusWhenUnconfigured: "api_credentials_missing",
+    integrationMode: "provider_api",
+    providerName: "AAP / Mercado API Provider",
+    requiredEnv: ["CSV_AAP_API_URL", "CSV_AAP_API_KEY"],
     technicalFinding:
-      "AAP funciona como fuente complementaria de mercado/placas, no reemplaza fuentes registrales oficiales.",
+      "AAP es una fuente complementaria. Para usarla en producto debe entrar como API de enriquecimiento o dataset licenciado.",
     limitation:
-      "Solo debe usarse para enriquecer contexto, nunca como evidencia principal de titularidad o deudas.",
-    operatorAction:
-      "Usar AAP como apoyo de trazabilidad cuando aporte informacion relevante al caso.",
+      "No reemplaza SUNARP, SOAT ni entidades oficiales.",
+    nextTechnologyStep:
+      "Configurar CSV_AAP_API_URL y CSV_AAP_API_KEY para enriquecer contexto de placa/mercado.",
     evidence: [
       {
         label: "AAP",
@@ -156,13 +198,16 @@ const liveSourceFindings: Record<string, StaticFinding> = {
     ]
   },
   infogas_gnv: {
-    status: "blocked_by_captcha",
+    statusWhenUnconfigured: "api_credentials_missing",
+    integrationMode: "provider_api",
+    providerName: "Infogas / GNV API Provider",
+    requiredEnv: ["CSV_INFOGAS_API_URL", "CSV_INFOGAS_API_KEY"],
     technicalFinding:
-      "La consulta de Infogas/GNV carga validaciones antiabuso, incluyendo reCAPTCHA o proteccion similar.",
+      "Infogas/GNV protege la consulta web. La via estable es integracion autorizada o proveedor especializado.",
     limitation:
-      "La verificacion de GNV o uso intensivo requiere consulta manual o acceso autorizado.",
-    operatorAction:
-      "Consultar placa en Infogas, registrar conversion GNV, estado y senales de uso intensivo.",
+      "No se debe depender de protecciones antiabuso como parte del backend.",
+    nextTechnologyStep:
+      "Configurar CSV_INFOGAS_API_URL y CSV_INFOGAS_API_KEY para devolver conversion GNV y senales de uso intensivo.",
     evidence: [
       {
         label: "Infogas",
@@ -172,13 +217,16 @@ const liveSourceFindings: Record<string, StaticFinding> = {
     ]
   },
   sunarp_documentos_pagados: {
-    status: "paid_or_partner",
+    statusWhenUnconfigured: "partner_required",
+    integrationMode: "partner_api",
+    providerName: "SUNARP Document Provider",
+    requiredEnv: ["CSV_SUNARP_DOCS_API_URL", "CSV_SUNARP_DOCS_API_KEY"],
     technicalFinding:
-      "Los documentos SUNARP de mayor valor pueden requerir cuenta, pago, autorizacion o flujo formal.",
+      "Los documentos registrales requieren cuenta, pago, autorizacion o integracion formal.",
     limitation:
-      "No debe ejecutarse compra de documentos sin consentimiento del cliente y control de costos.",
-    operatorAction:
-      "Solicitar autorizacion del cliente, comprar documento cuando aplique y adjuntar constancia oficial.",
+      "El costo y consentimiento del cliente deben quedar trazados antes de comprar documentos.",
+    nextTechnologyStep:
+      "Configurar CSV_SUNARP_DOCS_API_URL y CSV_SUNARP_DOCS_API_KEY con control de costo por documento.",
     evidence: [
       {
         label: "SUNARP en linea",
@@ -188,13 +236,16 @@ const liveSourceFindings: Record<string, StaticFinding> = {
     ]
   },
   municipalidades_provinciales: {
-    status: "blocked",
+    statusWhenUnconfigured: "matrix_required",
+    integrationMode: "data_matrix",
+    providerName: "Municipal Matrix Engine",
+    requiredEnv: ["CSV_MUNICIPAL_MATRIX_API_URL", "CSV_MUNICIPAL_MATRIX_API_KEY"],
     technicalFinding:
-      "No existe fuente unica nacional para todas las municipalidades provinciales con consulta uniforme por placa.",
+      "No existe fuente unica nacional para municipalidades provinciales. La solucion es matriz por ciudad con adaptador propio.",
     limitation:
-      "La cobertura debe construirse como matriz por ciudad con URL, requisitos y evidencia esperada.",
-    operatorAction:
-      "Seleccionar municipalidad segun ciudad de uso/venta y documentar fuente local consultada.",
+      "Cada ciudad puede tener portal, requisitos, campos y estabilidad diferentes.",
+    nextTechnologyStep:
+      "Configurar CSV_MUNICIPAL_MATRIX_API_URL y CSV_MUNICIPAL_MATRIX_API_KEY para resolver ciudad, portal y adaptador.",
     evidence: [
       {
         label: "Municipalidades en Gob.pe",
@@ -204,6 +255,14 @@ const liveSourceFindings: Record<string, StaticFinding> = {
     ]
   }
 };
+
+function envValue(name: string) {
+  return process.env[name]?.trim();
+}
+
+function missingEnv(requiredEnv: string[]) {
+  return requiredEnv.filter((name) => !envValue(name));
+}
 
 function availabilityFromStatus(status: number): PortalAvailability {
   if (status >= 200 && status < 400) {
@@ -277,19 +336,93 @@ async function checkPortal(url: string): Promise<PortalCheck> {
   };
 }
 
+async function callConfiguredProvider(
+  blueprint: IntegrationBlueprint,
+  source: SourceDefinition,
+  plate: string
+): Promise<ProviderCall | undefined> {
+  const [urlEnv, keyEnv] = blueprint.requiredEnv;
+  const endpoint = urlEnv ? envValue(urlEnv) : undefined;
+  const apiKey = keyEnv ? envValue(keyEnv) : undefined;
+
+  if (!endpoint || !apiKey) {
+    return undefined;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json",
+        authorization: `Bearer ${apiKey}`,
+        "x-api-key": apiKey
+      },
+      body: JSON.stringify({
+        plate,
+        sourceId: source.id,
+        requestedFields: source.fields
+      }),
+      cache: "no-store",
+      signal: controller.signal
+    });
+
+    const contentType = response.headers.get("content-type") ?? "";
+    const payload = contentType.includes("application/json")
+      ? await response.json()
+      : await response.text();
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: response.status === 401 || response.status === 403
+          ? "api_credentials_missing"
+          : "failed",
+        httpStatus: response.status,
+        detail: `Proveedor ${blueprint.providerName} respondio HTTP ${response.status}.`
+      };
+    }
+
+    return {
+      ok: true,
+      httpStatus: response.status,
+      payload,
+      detail: `Proveedor ${blueprint.providerName} devolvio datos estructurados HTTP ${response.status}.`
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: "failed",
+      detail:
+        error instanceof Error
+          ? `Proveedor ${blueprint.providerName} fallo: ${error.message}.`
+          : `Proveedor ${blueprint.providerName} fallo.`
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function validateLiveSource(
   source: SourceDefinition,
   plate: string
 ): Promise<LiveSourceCheck> {
-  const finding =
-    liveSourceFindings[source.id] ??
+  const blueprint =
+    sourceBlueprints[source.id] ??
     ({
-      status: "manual_assisted",
+      statusWhenUnconfigured: "worker_candidate",
+      integrationMode: "browser_worker",
+      providerName: `${source.name} Worker`,
+      requiredEnv: ["CSV_WORKER_SIGNING_KEY"],
       technicalFinding:
-        "Fuente registrada sin adaptador especifico. Se mantiene como manual asistida hasta validar automatizacion.",
+        "Fuente registrada sin integracion especifica. Queda como candidata a worker o proveedor API.",
       limitation:
-        "No hay suficiente evidencia tecnica para automatizar esta fuente con seguridad.",
-      operatorAction: source.operatorAction,
+        "Se requiere disenar adaptador, contrato de datos y evidencia antes de usarla en produccion.",
+      nextTechnologyStep:
+        "Crear adaptador dedicado, configurar credenciales y registrar esquema de respuesta.",
       evidence: [
         {
           label: source.name,
@@ -297,21 +430,43 @@ export async function validateLiveSource(
           detail: "Fuente oficial o fuente operativa registrada."
         }
       ]
-    } satisfies StaticFinding);
+    } satisfies IntegrationBlueprint);
 
-  const portal = await checkPortal(source.officialUrl);
+  const [provider, portal] = await Promise.all([
+    callConfiguredProvider(blueprint, source, plate),
+    checkPortal(source.officialUrl)
+  ]);
   const checkedAt = new Date().toISOString();
+  const missing = missingEnv(blueprint.requiredEnv);
+  const providerConfigured = missing.length === 0;
+  const providerPayload = provider?.ok ? provider.payload : undefined;
   const status =
-    portal.availability === "offline" ? "unavailable" : finding.status;
-
+    provider?.ok
+      ? "api_result"
+      : provider?.ok === false
+        ? provider.status
+        : portal.availability === "offline"
+          ? "unavailable"
+          : blueprint.statusWhenUnconfigured;
   const availabilityLabel =
     portal.availability === "online"
-      ? "portal disponible"
+      ? "portal visible"
       : portal.availability === "protected"
         ? "portal protegido"
         : portal.availability === "offline"
           ? "portal no disponible"
-          : "disponibilidad no confirmada";
+          : "portal no confirmado";
+  const integrationLabel =
+    status === "api_result"
+      ? "datos estructurados recibidos"
+      : providerConfigured
+        ? "proveedor configurado sin resultado exitoso"
+        : "credenciales de integracion pendientes";
+  const providerDetail = provider
+    ? provider.detail
+    : providerConfigured
+      ? "Proveedor configurado, pero no se ejecuto llamada."
+      : `Faltan variables: ${missing.join(", ")}.`;
 
   return {
     sourceId: source.id,
@@ -320,15 +475,21 @@ export async function validateLiveSource(
     officialUrl: source.officialUrl,
     plate,
     status,
+    integrationMode: blueprint.integrationMode,
+    providerName: blueprint.providerName,
+    providerConfigured,
+    requiredEnv: blueprint.requiredEnv,
     availability: portal.availability,
-    httpStatus: portal.httpStatus,
+    httpStatus: provider?.httpStatus ?? portal.httpStatus,
     confidence: source.confidence,
     checkedAt,
     fields: source.fields,
-    summary: `${source.name}: ${availabilityLabel} para revisar placa ${plate}. ${finding.operatorAction}`,
-    technicalFinding: `${finding.technicalFinding} ${portal.detail}`,
-    limitation: finding.limitation,
-    operatorAction: finding.operatorAction,
-    evidence: finding.evidence
+    summary: `${source.name}: ${integrationLabel} para ${plate}; ${availabilityLabel}.`,
+    technicalFinding: `${blueprint.technicalFinding} ${portal.detail} ${providerDetail}`,
+    limitation: blueprint.limitation,
+    operatorAction: blueprint.nextTechnologyStep,
+    nextTechnologyStep: blueprint.nextTechnologyStep,
+    evidence: blueprint.evidence,
+    providerPayload
   };
 }

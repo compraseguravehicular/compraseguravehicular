@@ -13,9 +13,9 @@ type PlateRunState =
       plate: string;
       packageType: string;
       totalSources: number;
-      manualAssisted: number;
-      paidOrPartner: number;
-      blocked: number;
+      apiResults: number;
+      credentialMissing: number;
+      workersAndPartners: number;
     }
   | { status: "error"; message: string };
 
@@ -32,7 +32,7 @@ export function PlateIntakeCard() {
     setState({ status: "submitting" });
 
     try {
-      const response = await fetch("/api/source-runs", {
+      const response = await fetch("/api/live-report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ plate: cleanPlate, packageType })
@@ -55,16 +55,20 @@ export function PlateIntakeCard() {
 
       track("plate_quick_check", {
         package_type: packageType,
-        total_sources: data.metrics.total
+        total_sources: data.report.metrics.total,
+        api_results: data.report.metrics.apiResults
       });
       setState({
         status: "success",
-        plate: data.plate,
+        plate: data.report.plate,
         packageType,
-        totalSources: data.metrics.total,
-        manualAssisted: data.metrics.manualAssisted,
-        paidOrPartner: data.metrics.paidOrPartner,
-        blocked: data.metrics.blocked
+        totalSources: data.report.metrics.total,
+        apiResults: data.report.metrics.apiResults,
+        credentialMissing: data.report.metrics.credentialMissing,
+        workersAndPartners:
+          data.report.metrics.workerCandidates +
+          data.report.metrics.partnerRequired +
+          data.report.metrics.matrixRequired
       });
     } catch {
       setState({
@@ -143,10 +147,10 @@ export function PlateIntakeCard() {
             />
             <div>
               <p className="font-bold text-brand-900">
-                {state.plate}: {state.totalSources} fuentes preparadas
+                {state.plate}: gateway listo con {state.totalSources} fuentes
               </p>
               <p className="mt-1 text-sm leading-6 text-slateText">
-                {state.manualAssisted} manuales asistidas, {state.paidOrPartner} con pago/API y {state.blocked} por matriz.
+                {state.apiResults} con datos API, {state.credentialMissing} esperando keys y {state.workersAndPartners} por worker/partner.
               </p>
             </div>
           </div>
