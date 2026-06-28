@@ -8,6 +8,8 @@
 - Paginas de terminos, privacidad y consentimiento.
 - Libro de Reclamaciones con formulario y API.
 - Motor interno `/fuentes` para orquestar fuentes por placa/paquete.
+- Detalle operativo `/panel/[code]` para ejecutar fuentes por orden real.
+- API `/api/source-results` para registrar estado, resumen y evidencia.
 - Vercel Analytics y Speed Insights.
 - Eventos de conversion: clicks a WhatsApp, reporte demo, panel interno, orden creada y reclamo creado.
 - Sitemap y robots alineados al dominio configurado.
@@ -51,8 +53,9 @@
 3. Cliente paga por Yape/Plin.
 4. Operador marca pago confirmado.
 5. Operador consulta fuentes y guarda evidencia.
-6. Operador entrega resumen/PDF.
-7. Orden queda cerrada o en observacion.
+6. Operador actualiza estado/resumen de cada fuente en `/panel/[code]`.
+7. Operador entrega resumen/PDF.
+8. Orden queda cerrada o en observacion.
 
 ## Metricas de la primera semana
 

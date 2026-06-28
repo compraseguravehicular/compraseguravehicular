@@ -97,3 +97,43 @@ export const createClaimSchema = z.object({
 });
 
 export type CreateClaimPayload = z.infer<typeof createClaimSchema>;
+
+export const sourceStatusSchema = z.enum([
+  "pending",
+  "consulted_no_alert",
+  "consulted_with_alert",
+  "unavailable",
+  "not_applicable",
+  "not_included",
+  "requires_manual_document",
+  "failed"
+]);
+
+export const confidenceLevelSchema = z.enum([
+  "Alta",
+  "Media",
+  "Baja",
+  "No aplica"
+]);
+
+export const updateSourceResultSchema = z.object({
+  id: z.string().uuid("Fuente no valida."),
+  status: sourceStatusSchema,
+  confidenceLevel: confidenceLevelSchema,
+  summary: z
+    .string()
+    .trim()
+    .max(1200, "El resumen es demasiado largo.")
+    .optional()
+    .or(z.literal(""))
+    .transform((value) => (value ? value : undefined)),
+  evidenceUrl: z
+    .string()
+    .trim()
+    .url("URL de evidencia no valida.")
+    .optional()
+    .or(z.literal(""))
+    .transform((value) => (value ? value : undefined))
+});
+
+export type UpdateSourceResultPayload = z.infer<typeof updateSourceResultSchema>;

@@ -80,3 +80,53 @@ export type SourceTemplate = {
   sourceCategory: string;
   requiredFor: PackageType[];
 };
+
+export type OrderSourceResult = {
+  id: string;
+  sourceName: string;
+  sourceCategory: string;
+  status: SourceStatus;
+  confidenceLevel: ConfidenceLevel;
+  summary?: string;
+  evidenceUrl?: string;
+  checkedAt?: string;
+  updatedAt?: string;
+  officialUrl?: string;
+};
+
+export type OrderSourceProgress = {
+  total: number;
+  completed: number;
+  alerts: number;
+  pending: number;
+  completionRate: number;
+};
+
+export type OrderDetail = {
+  id: string;
+  code: string;
+  plate: string;
+  packageType: PackageType;
+  packageLabel: string;
+  status: OrderStatus;
+  riskLevel: RiskLevel;
+  paymentStatus: PaymentStatus;
+  totalPrice: number;
+  city: string;
+  vehicleType: string;
+  sellerName?: string;
+  listingUrl?: string;
+  vin?: string;
+  mileage?: number;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  customer: {
+    name: string;
+    phone: string;
+    email?: string;
+  };
+  sources: OrderSourceResult[];
+  progress: OrderSourceProgress;
+  isLive: boolean;
+};

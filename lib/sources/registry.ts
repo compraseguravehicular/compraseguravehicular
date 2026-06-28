@@ -162,3 +162,19 @@ export function getSourcesForPackage(packageType: string) {
     source.requiredFor.includes(packageType as never)
   );
 }
+
+function normalizeName(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+export function findSourceDefinitionByName(sourceName: string) {
+  const normalized = normalizeName(sourceName);
+
+  return vehicleSourceRegistry.find((source) => {
+    const candidate = normalizeName(source.name);
+    return candidate === normalized || candidate.includes(normalized) || normalized.includes(candidate);
+  });
+}

@@ -21,7 +21,11 @@ import { getPanelData } from "@/lib/orders/repository";
 export const metadata: Metadata = {
   title: "Panel interno MVP",
   description:
-    "Panel operativo para ordenes, fuentes, evidencias, riesgo y entrega por WhatsApp."
+    "Panel operativo para ordenes, fuentes, evidencias, riesgo y entrega por WhatsApp.",
+  robots: {
+    index: false,
+    follow: false
+  }
 };
 
 export const dynamic = "force-dynamic";
@@ -193,7 +197,12 @@ export default async function PanelPage() {
                       {panelData.orders.map((order) => (
                         <tr key={order.code} className="border-t border-line">
                           <td className="px-5 py-4 font-semibold text-ink">
-                            {order.code}
+                            <Link
+                              href={`/panel/${encodeURIComponent(order.code)}`}
+                              className="text-brand-700 hover:text-brand-900"
+                            >
+                              {order.code}
+                            </Link>
                           </td>
                           <td className="px-5 py-4">{order.plate}</td>
                           <td className="px-5 py-4 text-slateText">

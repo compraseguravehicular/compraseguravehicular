@@ -6,7 +6,11 @@ import { SiteHeader } from "@/components/site-header";
 export const metadata: Metadata = {
   title: "Motor de fuentes",
   description:
-    "Orquestador operativo de fuentes vehiculares para Compra Segura Vehicular."
+    "Orquestador operativo de fuentes vehiculares para Compra Segura Vehicular.",
+  robots: {
+    index: false,
+    follow: false
+  }
 };
 
 export default function SourcesPage() {

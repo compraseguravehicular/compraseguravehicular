@@ -31,6 +31,7 @@ Incluye:
 - `/`: landing y formulario de solicitud.
 - `/api/orders`: API para crear ordenes.
 - `/panel`: panel interno MVP.
+- `/panel/[code]`: detalle operativo de orden y ejecucion de fuentes.
 - `/reporte`: reporte demo imprimible.
 - `/terminos`: terminos comerciales.
 - `/privacidad`: politica de privacidad.
@@ -38,6 +39,7 @@ Incluye:
 - `/libro-de-reclamaciones`: formulario de reclamos/quejas.
 - `/fuentes`: orquestador interno de fuentes por placa.
 - `/api/claims`: API para registrar reclamos/quejas.
+- `/api/source-results`: API para actualizar resultado/evidencia de fuentes.
 - `/api/source-runs`: API para preparar plan de consulta por placa/paquete.
 - `/robots.txt` y `/sitemap.xml`: SEO tecnico.
 
@@ -127,8 +129,10 @@ Estado actual:
 ```text
 app/
   api/orders/route.ts      API server-side
+  api/source-results       API de actualizacion de fuentes
   page.tsx                 landing
   panel/page.tsx           panel dinamico
+  panel/[code]/page.tsx    detalle operativo de orden
   reporte/page.tsx         reporte demo
 components/
   order-intake-form.tsx    formulario cliente
