@@ -11,6 +11,7 @@ type PlateRunState =
   | {
       status: "success";
       plate: string;
+      packageType: string;
       totalSources: number;
       manualAssisted: number;
       paidOrPartner: number;
@@ -59,6 +60,7 @@ export function PlateIntakeCard() {
       setState({
         status: "success",
         plate: data.plate,
+        packageType,
         totalSources: data.metrics.total,
         manualAssisted: data.metrics.manualAssisted,
         paidOrPartner: data.metrics.paidOrPartner,
@@ -149,10 +151,12 @@ export function PlateIntakeCard() {
             </div>
           </div>
           <Link
-            href="#solicitud"
+            href={`/reporte-en-vivo?placa=${encodeURIComponent(
+              state.plate
+            )}&paquete=${encodeURIComponent(state.packageType)}`}
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-brand-700 px-4 text-sm font-bold text-white hover:bg-brand-900"
           >
-            Crear orden
+            Ver reporte en vivo
             <ArrowRight aria-hidden="true" size={17} />
           </Link>
         </div>

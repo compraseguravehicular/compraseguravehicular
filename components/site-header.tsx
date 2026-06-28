@@ -20,6 +20,9 @@ export function SiteHeader() {
           <Link href="/reporte" className="hover:text-white">
             Reporte demo
           </Link>
+          <Link href="/reporte-en-vivo" className="hover:text-white">
+            Reporte en vivo
+          </Link>
           <Link href="/fuentes" className="hover:text-white">
             Fuentes
           </Link>

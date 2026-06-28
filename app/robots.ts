@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/panel", "/fuentes"]
+      disallow: ["/panel", "/fuentes", "/reporte-en-vivo"]
     },
     sitemap: absoluteUrl("/sitemap.xml")
   };
