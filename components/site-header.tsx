@@ -31,6 +31,8 @@ export function SiteHeader() {
             )}
             icon={MessageCircle}
             variant="light"
+            eventName="whatsapp_click"
+            eventProperties={{ location: "header" }}
           >
             WhatsApp
           </CtaButton>

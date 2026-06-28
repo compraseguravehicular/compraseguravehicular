@@ -57,3 +57,43 @@ export const createOrderSchema = z.object({
 });
 
 export type CreateOrderPayload = z.infer<typeof createOrderSchema>;
+
+export const createClaimSchema = z.object({
+  fullName: z.string().trim().min(2, "Ingresa tu nombre completo.").max(120),
+  documentNumber: z
+    .string()
+    .trim()
+    .min(6, "Ingresa un documento valido.")
+    .max(20),
+  email: z.string().trim().email("Email no valido.").max(120),
+  phone: z
+    .string()
+    .trim()
+    .min(8, "Ingresa un telefono valido.")
+    .max(20)
+    .regex(/^[0-9+\s()-]+$/, "Telefono no valido."),
+  address: z.string().trim().min(5, "Ingresa una direccion.").max(220),
+  orderCode: optionalText,
+  claimType: z.enum(["reclamo", "queja"]),
+  productService: z
+    .string()
+    .trim()
+    .min(3, "Indica el servicio relacionado.")
+    .max(160),
+  amount: z.number().min(0).max(100000).optional(),
+  detail: z
+    .string()
+    .trim()
+    .min(20, "Describe el detalle con mayor precision.")
+    .max(2500),
+  request: z
+    .string()
+    .trim()
+    .min(10, "Indica el pedido concreto.")
+    .max(1500),
+  consentAccepted: z
+    .boolean()
+    .refine((value) => value, "Debes aceptar el tratamiento de datos.")
+});
+
+export type CreateClaimPayload = z.infer<typeof createClaimSchema>;

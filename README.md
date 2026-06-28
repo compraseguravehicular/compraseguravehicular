@@ -10,6 +10,9 @@ Incluye:
 - Esquema Supabase.
 - Panel interno MVP.
 - Reporte demo imprimible.
+- Paginas legales publicas.
+- Libro de Reclamaciones con API server-side.
+- Vercel Analytics y Speed Insights.
 - Fallback demo cuando Supabase no esta configurado.
 
 ## Stack
@@ -20,6 +23,7 @@ Incluye:
 - Supabase-ready.
 - Zod para validacion.
 - Playwright para verificacion visual.
+- Vercel Analytics para eventos sin datos personales.
 
 ## Rutas
 
@@ -27,6 +31,11 @@ Incluye:
 - `/api/orders`: API para crear ordenes.
 - `/panel`: panel interno MVP.
 - `/reporte`: reporte demo imprimible.
+- `/terminos`: terminos comerciales.
+- `/privacidad`: politica de privacidad.
+- `/consentimiento`: consentimiento informado.
+- `/libro-de-reclamaciones`: formulario de reclamos/quejas.
+- `/api/claims`: API para registrar reclamos/quejas.
 - `/robots.txt` y `/sitemap.xml`: SEO tecnico.
 
 ## Variables De Entorno
@@ -36,6 +45,13 @@ Copia `.env.example` a `.env.local` y completa:
 ```bash
 NEXT_PUBLIC_SITE_URL=http://127.0.0.1:3000
 NEXT_PUBLIC_WHATSAPP_NUMBER=51999999999
+NEXT_PUBLIC_SUPPORT_EMAIL=compraseguravehicular@gmail.com
+NEXT_PUBLIC_BUSINESS_LEGAL_NAME=Compra Segura Vehicular
+NEXT_PUBLIC_BUSINESS_RUC=
+NEXT_PUBLIC_PAYMENT_ACCOUNT_NAME=Compra Segura Vehicular
+NEXT_PUBLIC_PAYMENT_YAPE_NUMBER=51999999999
+NEXT_PUBLIC_PAYMENT_PLIN_NUMBER=51999999999
+NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION=
 NEXT_PUBLIC_SUPABASE_URL=https://ncpfiaopqaizspnwznbo.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
@@ -67,8 +83,15 @@ Tablas principales:
 - `evidence_files`
 - `reports`
 - `payments`
+- `customer_claims`
 
 El esquema activa RLS y no crea politicas publicas. El MVP usa route handlers server-side con service role.
+
+Si la base ya existe, ejecuta solo:
+
+```text
+supabase/customer_claims_migration.sql
+```
 
 ## Desarrollo
 
@@ -124,5 +147,7 @@ supabase/
 3. Completar `.env.local` con anon key y service role key.
 4. Crear una orden desde la landing.
 5. Verificar que aparezca en `/panel`.
-6. Agregar autenticacion interna para operadores.
-7. Implementar carga real de evidencias y generacion de PDF.
+6. Ejecutar `supabase/customer_claims_migration.sql` si el proyecto ya estaba creado.
+7. Completar razon social, RUC, Yape/Plin y verificacion de Google Search Console.
+8. Agregar autenticacion interna para operadores.
+9. Implementar carga real de evidencias y generacion de PDF.

@@ -1,4 +1,7 @@
 import type { Metadata, Viewport } from "next";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
+import { AnalyticsEvents } from "@/components/analytics-events";
 import { siteUrl } from "@/lib/site";
 import "./globals.css";
 
@@ -22,6 +25,12 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "Compra Segura Vehicular" }],
   creator: "Compra Segura Vehicular",
+  alternates: {
+    canonical: siteUrl
+  },
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+  },
   openGraph: {
     type: "website",
     locale: "es_PE",
@@ -61,7 +70,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es-PE">
-      <body>{children}</body>
+      <body>
+        {children}
+        <AnalyticsEvents />
+        <Analytics />
+        <SpeedInsights />
+      </body>
     </html>
   );
 }

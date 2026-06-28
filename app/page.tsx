@@ -11,6 +11,7 @@ import {
 import { CtaButton } from "@/components/cta-button";
 import { OrderIntakeForm } from "@/components/order-intake-form";
 import { SectionHeading } from "@/components/section-heading";
+import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import {
   coreSources,
@@ -37,6 +38,7 @@ export default function HomePage() {
   };
 
   return (
+    <>
     <main>
       <SiteHeader />
       <script
@@ -75,10 +77,18 @@ export default function HomePage() {
                 )}
                 icon={MessageCircle}
                 variant="light"
+                eventName="whatsapp_click"
+                eventProperties={{ location: "hero", package: "compra_segura" }}
               >
                 Verificar por WhatsApp
               </CtaButton>
-              <CtaButton href="/reporte" icon={FileText} variant="secondary">
+              <CtaButton
+                href="/reporte"
+                icon={FileText}
+                variant="secondary"
+                eventName="report_demo_click"
+                eventProperties={{ location: "hero" }}
+              >
                 Ver reporte demo
               </CtaButton>
             </div>
@@ -211,6 +221,11 @@ export default function HomePage() {
                     )}
                     icon={MessageCircle}
                     variant={item.recommended ? "primary" : "secondary"}
+                    eventName="whatsapp_click"
+                    eventProperties={{
+                      location: "packages",
+                      package: item.name
+                    }}
                   >
                     {item.cta}
                   </CtaButton>
@@ -259,7 +274,7 @@ export default function HomePage() {
                 Flujo operativo
               </p>
               <h2 className="text-3xl font-bold text-ink sm:text-4xl">
-                Diseñado para vender hoy y automatizar despues
+                Disenado para vender hoy y automatizar despues
               </h2>
               <p className="mt-4 text-base leading-7 text-slateText">
                 La primera version prioriza ordenes, evidencias, PDF y WhatsApp.
@@ -267,10 +282,22 @@ export default function HomePage() {
                 ahorro real.
               </p>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
-                <CtaButton href="/panel" icon={Search} variant="primary">
+                <CtaButton
+                  href="/panel"
+                  icon={Search}
+                  variant="primary"
+                  eventName="internal_panel_click"
+                  eventProperties={{ location: "operations" }}
+                >
                   Ver panel interno
                 </CtaButton>
-                <CtaButton href="/reporte" icon={FileText} variant="secondary">
+                <CtaButton
+                  href="/reporte"
+                  icon={FileText}
+                  variant="secondary"
+                  eventName="report_demo_click"
+                  eventProperties={{ location: "operations" }}
+                >
                   Ver PDF demo
                 </CtaButton>
               </div>
@@ -320,6 +347,8 @@ export default function HomePage() {
             href={whatsappHref(
               "Hola, quiero iniciar una verificacion Compra Segura por placa."
             )}
+            data-track="whatsapp_click"
+            data-track-props={JSON.stringify({ location: "final_cta" })}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-white px-5 text-sm font-semibold text-brand-900 hover:bg-brand-50"
           >
             <MessageCircle aria-hidden="true" size={18} />
@@ -329,5 +358,7 @@ export default function HomePage() {
         </div>
       </section>
     </main>
+    <SiteFooter />
+    </>
   );
 }

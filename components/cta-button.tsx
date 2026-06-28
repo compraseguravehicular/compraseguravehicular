@@ -7,17 +7,25 @@ type CtaButtonProps = {
   children: React.ReactNode;
   icon?: LucideIcon;
   variant?: "primary" | "secondary" | "light";
+  eventName?: string;
+  eventProperties?: Record<string, string | number | boolean>;
 };
 
 export function CtaButton({
   href,
   children,
   icon: Icon,
-  variant = "primary"
+  variant = "primary",
+  eventName,
+  eventProperties
 }: CtaButtonProps) {
   return (
     <Link
       href={href}
+      data-track={eventName}
+      data-track-props={
+        eventProperties ? JSON.stringify(eventProperties) : undefined
+      }
       className={cn(
         "inline-flex min-h-12 items-center justify-center gap-2 rounded-md px-5 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-offset-2",
         variant === "primary" &&

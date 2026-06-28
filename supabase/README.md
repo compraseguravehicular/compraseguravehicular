@@ -28,8 +28,15 @@ Esto crea:
 - `evidence_files`
 - `reports`
 - `payments`
+- `customer_claims`
 
 Tambien activa RLS sin politicas publicas. El MVP usa route handlers server-side con `SUPABASE_SERVICE_ROLE_KEY`.
+
+Si el proyecto ya estaba creado antes de agregar reclamos, ejecuta solo:
+
+```text
+supabase/customer_claims_migration.sql
+```
 
 ## 2. Completar `.env.local`
 
@@ -56,3 +63,5 @@ La service role key nunca debe ir al navegador, repositorio, screenshots ni mens
 2. Crea una orden desde la landing.
 3. Abre `/panel`.
 4. La orden debe aparecer como dato real y ya no como modo demo.
+5. Abre `/libro-de-reclamaciones` y registra una solicitud de prueba.
+6. Verifica que aparezca en la tabla `customer_claims`.

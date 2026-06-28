@@ -1,7 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { CheckCircle2, Loader2, MessageCircle, Send } from "lucide-react";
+import { track } from "@vercel/analytics/react";
+import { businessConfig } from "@/lib/business";
 
 type ApiState =
   | { status: "idle" }
@@ -73,6 +76,11 @@ export function OrderIntakeForm() {
         });
         return;
       }
+
+      track("order_created", {
+        package_type: String(payload.packageType),
+        source: "landing_form"
+      });
 
       setState({
         status: "success",
@@ -217,8 +225,24 @@ export function OrderIntakeForm() {
           required
           className="mt-1 h-4 w-4 rounded border-line text-brand-700"
         />
-        Acepto que los datos enviados se usen para crear la orden y elaborar un
-        reporte informativo basado en fuentes disponibles.
+        <span>
+          Acepto que los datos enviados se usen para crear la orden y elaborar
+          un reporte informativo basado en fuentes disponibles, segun la{" "}
+          <Link
+            href="/privacidad"
+            className="font-semibold text-brand-700 hover:text-brand-900"
+          >
+            politica de privacidad
+          </Link>{" "}
+          y el{" "}
+          <Link
+            href="/consentimiento"
+            className="font-semibold text-brand-700 hover:text-brand-900"
+          >
+            consentimiento informado
+          </Link>
+          .
+        </span>
       </label>
 
       {state.status === "error" ? (
@@ -242,10 +266,26 @@ export function OrderIntakeForm() {
               <p className="mt-1 text-sm text-slateText">
                 Ahora confirma el pago y enviaremos el resumen por WhatsApp.
               </p>
+              <div className="mt-3 grid gap-1 text-sm text-ink">
+                <p>
+                  Yape: <strong>{businessConfig.yapeNumber}</strong>
+                </p>
+                <p>
+                  Plin: <strong>{businessConfig.plinNumber}</strong>
+                </p>
+                <p>
+                  Titular: <strong>{businessConfig.paymentAccountName}</strong>
+                </p>
+              </div>
             </div>
           </div>
           <a
             href={state.whatsappHref}
+            data-track="whatsapp_click"
+            data-track-props={JSON.stringify({
+              location: "order_success",
+              status: "order_created"
+            })}
             className="mt-4 inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-brand-700 px-4 text-sm font-semibold text-white hover:bg-brand-900"
           >
             <MessageCircle aria-hidden="true" size={17} />
