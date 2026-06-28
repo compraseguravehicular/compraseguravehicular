@@ -7,6 +7,7 @@
 - Panel interno conectado a Supabase.
 - Paginas de terminos, privacidad y consentimiento.
 - Libro de Reclamaciones con formulario y API.
+- Motor interno `/fuentes` para orquestar fuentes por placa/paquete.
 - Vercel Analytics y Speed Insights.
 - Eventos de conversion: clicks a WhatsApp, reporte demo, panel interno, orden creada y reclamo creado.
 - Sitemap y robots alineados al dominio configurado.
@@ -62,9 +63,21 @@
 - Tiempo promedio de entrega.
 - Reclamos o devoluciones.
 - Fuentes que mas fallan.
+- Fuentes que permiten automatizacion real sin CAPTCHA/sesion/pago.
 
 ## Regla de decision
 
 Si en 7 dias hay formularios pero pocos pagos, ajustar oferta/precio/confianza.
 Si hay pagos pero mucha demora operativa, automatizar fuentes o reducir alcance.
 Si hay reclamos por expectativas, reforzar copy, terminos y muestra de reporte.
+
+## Motor De Fuentes
+
+La primera version profesional no inventa datos ni rompe portales oficiales. Clasifica cada fuente como:
+
+- Manual asistida: operador consulta portal oficial y registra evidencia.
+- Pago/API/convenio: requiere autorizacion, pago o integracion formal.
+- Matriz pendiente: no existe una fuente nacional unica o requiere fuente por ciudad.
+- Candidata a automatizar: solo cuando se valide estabilidad tecnica y permiso de uso.
+
+Objetivo: medir tiempos y estabilidad antes de automatizar fuente por fuente.

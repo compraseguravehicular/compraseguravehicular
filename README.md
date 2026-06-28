@@ -12,6 +12,7 @@ Incluye:
 - Reporte demo imprimible.
 - Paginas legales publicas.
 - Libro de Reclamaciones con API server-side.
+- Motor interno de fuentes vehiculares.
 - Vercel Analytics y Speed Insights.
 - Fallback demo cuando Supabase no esta configurado.
 
@@ -35,7 +36,9 @@ Incluye:
 - `/privacidad`: politica de privacidad.
 - `/consentimiento`: consentimiento informado.
 - `/libro-de-reclamaciones`: formulario de reclamos/quejas.
+- `/fuentes`: orquestador interno de fuentes por placa.
 - `/api/claims`: API para registrar reclamos/quejas.
+- `/api/source-runs`: API para preparar plan de consulta por placa/paquete.
 - `/robots.txt` y `/sitemap.xml`: SEO tecnico.
 
 ## Variables De Entorno
@@ -136,6 +139,8 @@ lib/
   orders/repository.ts     capa de datos
   orders/pricing.ts        precios
   orders/source-templates.ts fuentes iniciales
+  sources/registry.ts      matriz profesional de fuentes
+  sources/runner.ts        orquestador de fuentes
 supabase/
   schema.sql               base de datos
 ```
@@ -149,5 +154,6 @@ supabase/
 5. Verificar que aparezca en `/panel`.
 6. Ejecutar `supabase/customer_claims_migration.sql` si el proyecto ya estaba creado.
 7. Completar razon social, RUC, Yape/Plin y verificacion de Google Search Console.
-8. Agregar autenticacion interna para operadores.
-9. Implementar carga real de evidencias y generacion de PDF.
+8. Probar `/fuentes` con placas reales y registrar que fuentes permiten automatizacion estable.
+9. Agregar autenticacion interna para operadores.
+10. Implementar carga real de evidencias y generacion de PDF.
