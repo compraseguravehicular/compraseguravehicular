@@ -1,11 +1,10 @@
 import { z } from "zod";
+import { isValidPlate, normalizePlate } from "@/lib/plates";
 
 const plateSchema = z
   .string()
   .trim()
-  .min(5, "Ingresa una placa valida.")
-  .max(12, "La placa es demasiado larga.")
-  .regex(/^[A-Za-z0-9-]+$/, "Usa solo letras, numeros y guion.");
+  .refine(isValidPlate, "Ingresa una placa valida.");
 
 const optionalText = z
   .string()
@@ -15,7 +14,7 @@ const optionalText = z
   .transform((value) => (value ? value : undefined));
 
 export const createOrderSchema = z.object({
-  plate: plateSchema.transform((value) => value.toUpperCase()),
+  plate: plateSchema.transform(normalizePlate),
   customerName: z.string().trim().min(2, "Ingresa tu nombre.").max(100),
   phone: z
     .string()

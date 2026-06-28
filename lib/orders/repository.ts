@@ -15,6 +15,7 @@ import { panelOrders } from "@/lib/product-data";
 import { getSupabaseAdminClient, isSupabaseConfigured } from "@/lib/supabase/server";
 import { packageLabels, packagePrices } from "@/lib/orders/pricing";
 import { sourceTemplates } from "@/lib/orders/source-templates";
+import { assessOrderRisk, buildReportSummary } from "@/lib/risk/engine";
 import { findSourceDefinitionByName } from "@/lib/sources/registry";
 import type { UpdateSourceResultPayload } from "@/lib/validators";
 
@@ -158,6 +159,15 @@ function demoOrderDetail(code: string): OrderDetail {
       officialUrl: findSourceDefinitionByName(source.sourceName)?.officialUrl
     }));
 
+  const progress = calculateSourceProgress(sources);
+  const riskAssessment = assessOrderRisk({
+    code,
+    plate: "ABC-123",
+    packageLabel: packageLabels.compra_segura,
+    progress,
+    sources
+  });
+
   return {
     id: crypto.randomUUID(),
     code,
@@ -177,7 +187,18 @@ function demoOrderDetail(code: string): OrderDetail {
       phone: "999999999"
     },
     sources,
-    progress: calculateSourceProgress(sources),
+    progress,
+    riskAssessment,
+    reportSummary: buildReportSummary(
+      {
+        code,
+        plate: "ABC-123",
+        packageLabel: packageLabels.compra_segura,
+        progress,
+        sources
+      },
+      riskAssessment
+    ),
     isLive: false
   };
 }
@@ -417,13 +438,22 @@ export async function getOrderDetailByCode(
   }
 
   const sources = ((sourceData ?? []) as SourceResultRow[]).map(mapSourceRow);
+  const progress = calculateSourceProgress(sources);
+  const packageLabel = packageLabels[row.package_type];
+  const riskAssessment = assessOrderRisk({
+    code: row.code,
+    plate: row.plate,
+    packageLabel,
+    progress,
+    sources
+  });
 
   return {
     id: row.id,
     code: row.code,
     plate: row.plate,
     packageType: row.package_type,
-    packageLabel: packageLabels[row.package_type],
+    packageLabel,
     status: row.status,
     riskLevel: row.risk_level,
     paymentStatus: row.payment_status ?? "pending",
@@ -439,7 +469,18 @@ export async function getOrderDetailByCode(
     updatedAt: row.updated_at ?? row.created_at,
     customer: getCustomer(row),
     sources,
-    progress: calculateSourceProgress(sources),
+    progress,
+    riskAssessment,
+    reportSummary: buildReportSummary(
+      {
+        code: row.code,
+        plate: row.plate,
+        packageLabel,
+        progress,
+        sources
+      },
+      riskAssessment
+    ),
     isLive: true
   };
 }

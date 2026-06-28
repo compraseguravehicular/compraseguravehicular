@@ -102,6 +102,37 @@ export type OrderSourceProgress = {
   completionRate: number;
 };
 
+export type RiskRecommendation =
+  | "Comprar"
+  | "Negociar"
+  | "Pedir documentos"
+  | "Evitar";
+
+export type RiskAssessment = {
+  score: number;
+  level: Exclude<RiskLevel, "Pendiente">;
+  recommendation: RiskRecommendation;
+  alerts: string[];
+  riskFactors: string[];
+  positiveFactors: string[];
+  pendingFactors: string[];
+};
+
+export type ReportSummary = {
+  plate: string;
+  packageLabel: string;
+  consultedSources: string[];
+  pendingSources: string[];
+  alerts: string[];
+  score: number;
+  recommendation: RiskRecommendation;
+  whatsappText: string;
+  pdfSections: Array<{
+    title: string;
+    content: string;
+  }>;
+};
+
 export type OrderDetail = {
   id: string;
   code: string;
@@ -128,5 +159,7 @@ export type OrderDetail = {
   };
   sources: OrderSourceResult[];
   progress: OrderSourceProgress;
+  riskAssessment: RiskAssessment;
+  reportSummary: ReportSummary;
   isLive: boolean;
 };

@@ -120,7 +120,7 @@ export function OrderIntakeForm() {
           Placa
           <input
             name="plate"
-            placeholder="ABC-123"
+            placeholder="5075-CD o 5075CD"
             required
             className="h-11 rounded-md border border-line px-3 font-normal uppercase outline-none focus:border-brand-700"
           />

@@ -2,13 +2,16 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle,
   CheckCircle2,
+  Copy,
   ExternalLink,
   FileText,
   Loader2,
   MessageCircle,
+  RefreshCcw,
   Save,
   ShieldCheck
 } from "lucide-react";
@@ -87,17 +90,19 @@ function sourceStatusLabel(status: SourceStatus) {
 }
 
 export function OrderSourceWorkspace({ order }: { order: OrderDetail }) {
+  const router = useRouter();
   const [sources, setSources] = useState(order.sources);
   const [saveState, setSaveState] = useState<SaveState>({});
+  const [copied, setCopied] = useState(false);
 
   const progress = useMemo(() => calculateProgress(sources), [sources]);
-  const whatsappMessage = [
-    `Orden ${order.code}`,
-    `Placa ${order.plate}`,
-    `Paquete ${order.packageLabel}`,
-    `Avance fuentes ${progress.completionRate}%`,
-    `Alertas ${progress.alerts}`
-  ].join("\n");
+  const whatsappMessage = order.reportSummary.whatsappText;
+
+  async function copySummary() {
+    await navigator.clipboard.writeText(order.reportSummary.whatsappText);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1800);
+  }
 
   async function onSave(
     event: React.FormEvent<HTMLFormElement>,
@@ -164,6 +169,14 @@ export function OrderSourceWorkspace({ order }: { order: OrderDetail }) {
               </p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => router.refresh()}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-line bg-white px-4 text-sm font-semibold hover:border-brand-700 hover:text-brand-700"
+              >
+                <RefreshCcw aria-hidden="true" size={17} />
+                Recalcular
+              </button>
               <a
                 href={whatsappHref(whatsappMessage)}
                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-line bg-white px-4 text-sm font-semibold hover:border-brand-700 hover:text-brand-700"
@@ -199,10 +212,97 @@ export function OrderSourceWorkspace({ order }: { order: OrderDetail }) {
         <section className="grid gap-4 md:grid-cols-5">
           {[
             ["Avance", `${progress.completionRate}%`],
+            ["Score", `${order.riskAssessment.score}/100`],
+            ["Riesgo", order.riskAssessment.level],
+            ["Recomendacion", order.riskAssessment.recommendation],
+            ["Alertas", progress.alerts]
+          ].map(([label, value]) => (
+            <div
+              key={label}
+              className="rounded-md border border-line bg-white p-5 shadow-panel"
+            >
+              <p className="text-sm text-slateText">{label}</p>
+              <p className="mt-2 text-2xl font-bold">{value}</p>
+            </div>
+          ))}
+        </section>
+
+        <section className="grid gap-4 lg:grid-cols-[1fr_380px]">
+          <div className="rounded-md border border-line bg-white p-5 shadow-panel">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-normal text-slateText">
+                  Resumen final operativo
+                </p>
+                <h2 className="mt-2 text-2xl font-bold">
+                  {order.riskAssessment.recommendation}
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-slateText">
+                  Riesgo {order.riskAssessment.level} con score{" "}
+                  {order.riskAssessment.score}/100, calculado desde estados de
+                  fuentes y evidencia registrada.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={copySummary}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-brand-700 px-4 text-sm font-semibold text-white hover:bg-brand-900"
+              >
+                <Copy aria-hidden="true" size={17} />
+                {copied ? "Copiado" : "Copiar resumen"}
+              </button>
+            </div>
+            <textarea
+              readOnly
+              value={order.reportSummary.whatsappText}
+              className="mt-5 min-h-44 w-full rounded-md border border-line bg-surface p-4 text-sm leading-6 outline-none"
+            />
+          </div>
+
+          <div className="rounded-md border border-line bg-white p-5 shadow-panel">
+            <p className="text-sm font-semibold uppercase tracking-normal text-slateText">
+              Alertas y pendientes
+            </p>
+            <div className="mt-4 grid gap-3 text-sm">
+              {[
+                ...order.riskAssessment.alerts,
+                ...order.riskAssessment.pendingFactors
+              ].slice(0, 6).length ? (
+                [
+                  ...order.riskAssessment.alerts,
+                  ...order.riskAssessment.pendingFactors
+                ]
+                  .slice(0, 6)
+                  .map((item) => (
+                    <div key={item} className="flex gap-3">
+                      <AlertTriangle
+                        aria-hidden="true"
+                        className="mt-0.5 shrink-0 text-amberRisk"
+                        size={17}
+                      />
+                      <span>{item}</span>
+                    </div>
+                  ))
+              ) : (
+                <div className="flex gap-3">
+                  <ShieldCheck
+                    aria-hidden="true"
+                    className="mt-0.5 shrink-0 text-brand-700"
+                    size={17}
+                  />
+                  <span>Sin alertas registradas por ahora.</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-4 md:grid-cols-4">
+          {[
             ["Fuentes", progress.total],
             ["Completadas", progress.completed],
             ["Pendientes", progress.pending],
-            ["Alertas", progress.alerts]
+            ["Con evidencia", sources.filter((source) => source.evidenceUrl).length]
           ].map(([label, value]) => (
             <div
               key={label}
@@ -355,9 +455,9 @@ export function OrderSourceWorkspace({ order }: { order: OrderDetail }) {
                 Riesgo actual
               </p>
               <div className="mt-3 flex items-center justify-between gap-4">
-                <RiskBadge value={order.riskLevel} />
+                <RiskBadge value={order.riskAssessment.level} />
                 <span className="text-sm font-semibold">
-                  {progress.alerts ? "Revisar alertas" : "En evaluacion"}
+                  {order.riskAssessment.score}/100
                 </span>
               </div>
             </div>

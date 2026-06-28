@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { CtaButton } from "@/components/cta-button";
 import { OrderIntakeForm } from "@/components/order-intake-form";
+import { PlateIntakeCard } from "@/components/plate-intake-card";
 import { SectionHeading } from "@/components/section-heading";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
@@ -72,15 +73,13 @@ export default function HomePage() {
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <CtaButton
-                href={whatsappHref(
-                  "Hola, quiero verificar una placa antes de comprar un vehiculo. Paquete: Compra Segura"
-                )}
-                icon={MessageCircle}
+                href="#solicitud"
+                icon={Search}
                 variant="light"
-                eventName="whatsapp_click"
-                eventProperties={{ location: "hero", package: "compra_segura" }}
+                eventName="order_form_click"
+                eventProperties={{ location: "hero" }}
               >
-                Verificar por WhatsApp
+                Empezar con mi placa
               </CtaButton>
               <CtaButton
                 href="/reporte"
@@ -92,6 +91,7 @@ export default function HomePage() {
                 Ver reporte demo
               </CtaButton>
             </div>
+            <PlateIntakeCard />
             <p className="mt-5 max-w-xl text-sm leading-6 text-white/70">
               Reporte informativo. No somos entidad oficial y no reemplazamos
               certificados registrales ni revision mecanica presencial.
@@ -111,26 +111,26 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="bg-white py-16 sm:py-20">
+      <section id="solicitud" className="bg-white py-16 sm:py-20">
         <div className="mx-auto grid max-w-7xl gap-10 px-4 sm:px-6 lg:grid-cols-[0.85fr_1.15fr] lg:px-8">
           <div>
             <p className="mb-3 text-sm font-semibold uppercase tracking-normal text-brand-700">
-              Validacion monetizable
+              Solicitud guiada
             </p>
             <h2 className="text-3xl font-bold text-ink sm:text-4xl">
-              El primer backend ya crea ordenes listas para operar
+              Crea una verificacion lista para revisar y entregar
             </h2>
             <p className="mt-4 text-base leading-7 text-slateText">
-              Este formulario entra por API, valida datos y crea una orden en
-              Supabase si las credenciales estan configuradas. Sin credenciales,
-              mantiene modo demo para no bloquear desarrollo.
+              Registra la placa, el contexto de compra y el paquete elegido.
+              Con eso preparamos fuentes, evidencia, riesgo y entrega por
+              WhatsApp.
             </p>
             <ul className="mt-6 grid gap-3 text-sm text-ink">
               {[
-                "Validacion server-side con Zod.",
-                "Service role solo en servidor.",
-                "Fallback demo sin exponer datos sensibles.",
-                "Orden preparada para fuentes, pago, evidencias y PDF."
+                "Validacion segura de datos.",
+                "Fuentes preparadas por paquete.",
+                "Evidencias y resumen operativo.",
+                "Orden lista para pago, revision y entrega."
               ].map((item) => (
                 <li key={item} className="flex gap-3">
                   <CheckCircle2
@@ -180,34 +180,45 @@ export default function HomePage() {
 
       <section id="paquetes" className="bg-white py-16 sm:py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <SectionHeading eyebrow="Paquetes" title="Tres niveles para vender desde el primer dia">
-            Express capta demanda, Compra Segura concentra margen y Pro cubre
-            casos donde la decision necesita mas respaldo.
+          <SectionHeading eyebrow="Paquetes" title="Tres niveles para comprar con mas seguridad">
+            Express detecta alertas basicas, Compra Segura es el recomendado
+            para compradores y Pro cubre operaciones de mayor valor.
           </SectionHeading>
           <div className="mt-12 grid gap-5 lg:grid-cols-3">
-            {packages.map((item) => (
+            {packages.map((item) => {
+              const isRecommended = item.recommended;
+              return (
               <article
                 key={item.name}
-                className="relative rounded-md border border-line bg-white p-6 shadow-panel"
+                className={`relative rounded-md border p-6 shadow-panel ${
+                  isRecommended
+                    ? "border-brand-700 bg-brand-900 text-white ring-2 ring-brand-100"
+                    : "border-line bg-white"
+                }`}
               >
                 {item.recommended ? (
-                  <span className="absolute right-4 top-4 rounded-md bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">
-                    Recomendado
+                  <span className="absolute right-4 top-4 rounded-md bg-white px-3 py-1 text-xs font-bold text-brand-900">
+                    Mas elegido
                   </span>
                 ) : null}
-                <h3 className="text-xl font-bold text-ink">{item.name}</h3>
-                <p className="mt-3 text-3xl font-bold text-ink">
+                <h3 className={`text-xl font-bold ${isRecommended ? "text-white" : "text-ink"}`}>
+                  {item.name}
+                </h3>
+                <p className={`mt-3 text-3xl font-bold ${isRecommended ? "text-white" : "text-ink"}`}>
                   {item.price}
                 </p>
-                <p className="mt-4 min-h-16 text-sm leading-6 text-slateText">
+                <p className={`mt-4 min-h-16 text-sm leading-6 ${isRecommended ? "text-white/75" : "text-slateText"}`}>
                   {item.description}
                 </p>
                 <ul className="mt-6 space-y-3">
                   {item.includes.map((feature) => (
-                    <li key={feature} className="flex gap-3 text-sm text-ink">
+                    <li
+                      key={feature}
+                      className={`flex gap-3 text-sm ${isRecommended ? "text-white/90" : "text-ink"}`}
+                    >
                       <CheckCircle2
                         aria-hidden="true"
-                        className="mt-0.5 shrink-0 text-brand-700"
+                        className={`mt-0.5 shrink-0 ${isRecommended ? "text-brand-100" : "text-brand-700"}`}
                         size={17}
                       />
                       {feature}
@@ -220,7 +231,7 @@ export default function HomePage() {
                       `Hola, quiero verificar una placa. Paquete: ${item.name}`
                     )}
                     icon={MessageCircle}
-                    variant={item.recommended ? "primary" : "secondary"}
+                    variant={isRecommended ? "light" : "secondary"}
                     eventName="whatsapp_click"
                     eventProperties={{
                       location: "packages",
@@ -231,7 +242,8 @@ export default function HomePage() {
                   </CtaButton>
                 </div>
               </article>
-            ))}
+            );
+            })}
           </div>
         </div>
       </section>
@@ -274,12 +286,11 @@ export default function HomePage() {
                 Flujo operativo
               </p>
               <h2 className="text-3xl font-bold text-ink sm:text-4xl">
-                Disenado para vender hoy y automatizar despues
+                Proceso claro desde la placa hasta la entrega
               </h2>
               <p className="mt-4 text-base leading-7 text-slateText">
-                La primera version prioriza ordenes, evidencias, PDF y WhatsApp.
-                Las fuentes se automatizan solo cuando demuestran estabilidad y
-                ahorro real.
+                Primero ordenamos fuentes, evidencias y riesgo. Luego
+                automatizamos cada consulta cuando sea estable y verificable.
               </p>
               <div className="mt-7 flex flex-col gap-3 sm:flex-row">
                 <CtaButton
