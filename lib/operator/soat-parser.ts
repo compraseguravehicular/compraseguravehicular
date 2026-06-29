@@ -111,12 +111,26 @@ const fieldDefinitions: Array<{
   {
     key: "issuedAt",
     label: "Fecha de emision",
-    aliases: ["fechacreacion", "fecha creacion", "fecha emision", "emision"]
+    aliases: [
+      "fechacreacion",
+      "fecha creacion",
+      "fec creacion",
+      "fec. creacion",
+      "fecha emision",
+      "fec emision",
+      "emision"
+    ]
   },
   {
     key: "canceledAt",
     label: "Fecha de anulacion",
-    aliases: ["fechaanulacion", "fecha anulacion", "anulacion"]
+    aliases: [
+      "fechaanulacion",
+      "fecha anulacion",
+      "fec anulacion",
+      "fec. anulacion",
+      "anulacion"
+    ]
   },
   {
     key: "policeControlDate",
@@ -124,13 +138,22 @@ const fieldDefinitions: Array<{
     aliases: [
       "fechacontrolpolicial",
       "fecha control policial",
+      "fec control policial",
+      "fec. control policial",
+      "fec ctrl policial",
+      "fec. ctrl. policial",
       "control policial"
     ]
   },
   {
     key: "seats",
     label: "Asientos",
-    aliases: ["numeroasientos", "numero asientos", "asientos"]
+    aliases: [
+      "numeroasientos",
+      "numero asientos",
+      "numero de asientos",
+      "asientos"
+    ]
   },
   {
     key: "brand",
@@ -140,7 +163,7 @@ const fieldDefinitions: Array<{
   {
     key: "model",
     label: "Modelo",
-    aliases: ["modelo", "modelovehiculo", "modelo vehiculo"]
+    aliases: ["modelo", "modelovehiculo", "modelo vehiculo", "modelo de vehiculo"]
   }
 ];
 
@@ -180,6 +203,17 @@ function stripHtml(value: string) {
     .trim();
 }
 
+function decodeHtmlEntities(value: string) {
+  return value
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, "\"")
+    .replace(/&#39;/g, "'")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)));
+}
+
 function normalizeEvidenceText(value: string) {
   return stripHtml(value.replace(/`n/g, "\n").replace(/\\n/g, "\n"))
     .replace(/\r/g, "\n")
@@ -199,6 +233,36 @@ function normalizeLabel(value: string) {
   return normalizeForMatching(value).replace(/[^A-Z0-9]/g, "");
 }
 
+function fieldKeyFromLabel(value: string) {
+  const normalized = normalizeLabel(value);
+
+  for (const field of fieldDefinitions) {
+    const labels = [field.label, ...field.aliases].map(normalizeLabel);
+    if (
+      labels.some(
+        (label) =>
+          normalized === label ||
+          normalized.startsWith(label) ||
+          label.startsWith(normalized)
+      )
+    ) {
+      return field.key;
+    }
+  }
+
+  return undefined;
+}
+
+function isExactKnownLabel(value: string) {
+  const normalized = normalizeLabel(value);
+
+  return fieldDefinitions.some((field) =>
+    [field.label, ...field.aliases]
+      .map(normalizeLabel)
+      .some((label) => normalized === label)
+  );
+}
+
 function cleanField(value: string) {
   return value
     .replace(/\s{2,}/g, " ")
@@ -216,14 +280,7 @@ function evidenceLines(evidenceText: string) {
 
 function isKnownLabel(value: string) {
   const labelCandidate = value.split(":")[0] ?? value;
-  const normalized = normalizeLabel(labelCandidate);
-
-  return fieldDefinitions.some((field) =>
-    field.aliases.some((alias) => {
-      const normalizedAlias = normalizeLabel(alias);
-      return normalized === normalizedAlias || normalized.startsWith(normalizedAlias);
-    })
-  );
+  return Boolean(fieldKeyFromLabel(labelCandidate));
 }
 
 function extractFromLines(
@@ -256,7 +313,7 @@ function extractFromLines(
     const alias = aliases.find((candidate) =>
       normalizedLine.startsWith(candidate) && normalizedLine.length > candidate.length
     );
-    if (alias) {
+    if (alias && !isExactKnownLabel(line)) {
       const value = line.slice(field.aliases[0].length);
       if (value.trim().length >= 2) {
         return cleanField(value);
@@ -287,6 +344,71 @@ function extractField(
     extractFromLines(evidenceText, field) ??
     extractWithPatterns(searchText, field.patterns)
   );
+}
+
+function htmlCellText(value: string) {
+  return cleanField(
+    decodeHtmlEntities(value)
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+  );
+}
+
+function extractHtmlTableRows(rawText: string) {
+  if (!/<t[dh][\s>]/i.test(rawText)) {
+    return [];
+  }
+
+  return [...rawText.matchAll(/<tr[\s\S]*?<\/tr>/gi)]
+    .map((row) =>
+      [...row[0].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi)].map((cell) =>
+        htmlCellText(cell[1])
+      )
+    )
+    .filter((row) => row.some(Boolean));
+}
+
+function extractDelimitedRows(rawText: string) {
+  return rawText
+    .replace(/`n/g, "\n")
+    .replace(/\\n/g, "\n")
+    .split(/\r?\n+/)
+    .map((line) => line.split(/\t+/).map(cleanField))
+    .filter((row) => row.length > 1 && row.some(Boolean));
+}
+
+function mapRowsToFields(rows: string[][]) {
+  const fields: SoatVehicleFields = {};
+
+  for (let index = 0; index < rows.length; index += 1) {
+    const row = rows[index];
+    const headerKeys = row.map((cell) => fieldKeyFromLabel(cell));
+    const knownHeaderCount = headerKeys.filter(Boolean).length;
+
+    if (row.length >= 2 && knownHeaderCount <= 1) {
+      const key = fieldKeyFromLabel(row[0]);
+      const value = row.slice(1).find((cell) => cell.trim().length > 0);
+
+      if (key && value && !fields[key]) {
+        fields[key] = value;
+      }
+    }
+
+    const nextRow = rows[index + 1];
+
+    if (knownHeaderCount >= 4 && nextRow) {
+      headerKeys.forEach((key, cellIndex) => {
+        const value = nextRow[cellIndex];
+
+        if (key && value && !fields[key]) {
+          fields[key] = value;
+        }
+      });
+    }
+  }
+
+  return fields;
 }
 
 function parseDateValue(value?: string) {
@@ -431,12 +553,20 @@ export function parseSoatEvidence(input: {
   rawText: string;
 }): ParsedSoatResult {
   const plate = normalizePlate(input.plate);
+  const tableFields = {
+    ...mapRowsToFields(extractHtmlTableRows(input.rawText)),
+    ...mapRowsToFields(extractDelimitedRows(input.rawText))
+  };
   const evidenceText = normalizeEvidenceText(input.rawText);
   const searchText = normalizeForMatching(evidenceText);
-  const extractedFields: SoatVehicleFields = {};
+  const extractedFields: SoatVehicleFields = { ...tableFields };
   const blockingReason = detectBlockingResult(evidenceText);
 
   for (const field of fieldDefinitions) {
+    if (extractedFields[field.key]) {
+      continue;
+    }
+
     const value = extractField(evidenceText, searchText, field);
     if (value) {
       extractedFields[field.key] = value;

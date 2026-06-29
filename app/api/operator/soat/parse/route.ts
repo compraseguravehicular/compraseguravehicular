@@ -31,7 +31,8 @@ const parseSoatSchema = z.object({
     .uuid("ID de fuente no valido.")
     .optional()
     .or(z.literal(""))
-    .transform((value) => (value ? value : undefined))
+    .transform((value) => (value ? value : undefined)),
+  persist: z.boolean().optional().default(true)
 });
 
 const persistableStatuses = new Set([
@@ -58,9 +59,9 @@ export async function POST(request: Request) {
     const result = parseSoatEvidence(parsed.data);
     const shouldSaveOperatorEvidence = persistableStatuses.has(
       result.statusSuggestion
-    );
+    ) && parsed.data.persist;
     const [savedSource, savedOperatorEvidence] = await Promise.all([
-      parsed.data.sourceResultId
+      parsed.data.sourceResultId && parsed.data.persist
         ? updateOrderSourceResult({
             id: parsed.data.sourceResultId,
             status: result.statusSuggestion,

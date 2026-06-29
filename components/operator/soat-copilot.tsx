@@ -86,6 +86,19 @@ function imageFileName(file: File, source: ImageInputSource) {
   return "captura-soat.png";
 }
 
+function looksLikeSoatEvidence(value: string) {
+  const normalized = value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
+
+  return (
+    value.trim().length >= 20 &&
+    /(SOAT|COMPANIA|ASEGURADORA|CERTIFICADO|VIGENTE)/.test(normalized) &&
+    /(PLACA|INICIO|FIN|ESTADO|HISTORIAL)/.test(normalized)
+  );
+}
+
 export function SoatCopilot({
   initialPlate = "5075cd",
   sourceResultId
@@ -181,6 +194,20 @@ export function SoatCopilot({
   async function analyzeEvidence(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await submitEvidence();
+  }
+
+  async function handleEvidencePaste(event: React.ClipboardEvent<HTMLTextAreaElement>) {
+    const html = event.clipboardData.getData("text/html");
+    const text = event.clipboardData.getData("text/plain");
+    const evidence = html.includes("<table") ? html : text;
+
+    if (!looksLikeSoatEvidence(evidence)) {
+      return;
+    }
+
+    event.preventDefault();
+    setRawText(evidence);
+    await submitEvidence(evidence);
   }
 
   const processImageFile = useCallback(async (file: File, source: ImageInputSource) => {
@@ -424,8 +451,11 @@ export function SoatCopilot({
             <textarea
               value={rawText}
               onChange={(event) => setRawText(event.target.value)}
+              onPaste={(event) => {
+                void handleEvidencePaste(event);
+              }}
               rows={11}
-              placeholder="Pega aqui la tabla del resultado APESEG, el HTML copiado o el texto extraido del resultado..."
+              placeholder="Pega aqui la tabla del resultado APESEG. Si copiaste la tabla o el historial, se analizara automaticamente..."
               className="rounded-md border border-line bg-surface px-3 py-3 text-sm leading-6 outline-none focus:border-brand-700"
             />
           </label>
