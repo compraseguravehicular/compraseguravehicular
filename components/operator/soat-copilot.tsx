@@ -183,6 +183,14 @@ export function SoatCopilot({
       });
       setPlate(data.result.plate);
       setState({ status: "success", data, copied: false });
+      window.dispatchEvent(
+        new CustomEvent("operator-evidence-saved", {
+          detail: {
+            plate: data.result.plate,
+            sourceId: data.result.sourceId
+          }
+        })
+      );
     } catch {
       setState({
         status: "error",

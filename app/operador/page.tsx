@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { OperatorCaseStatus } from "@/components/operator/operator-case-status";
 import { SunarpCopilot } from "@/components/operator/sunarp-copilot";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
+import { isValidPlate, normalizePlate } from "@/lib/plates";
 
 export const metadata: Metadata = {
   title: "Copiloto vendedor",
@@ -14,7 +16,20 @@ export const metadata: Metadata = {
   }
 };
 
-export default function OperatorPage() {
+type OperatorPageProps = {
+  searchParams: Promise<{ placa?: string; plate?: string }>;
+};
+
+function plateFromQuery(searchParams: { placa?: string; plate?: string }) {
+  const value = searchParams.placa ?? searchParams.plate ?? "5075cd";
+  return isValidPlate(value) ? normalizePlate(value) : "5075-CD";
+}
+
+export default async function OperatorPage({ searchParams }: OperatorPageProps) {
+  const query = await searchParams;
+  const initialPlate = plateFromQuery(query);
+  const encodedPlate = encodeURIComponent(initialPlate);
+
   return (
     <>
       <SiteHeader />
@@ -34,13 +49,13 @@ export default function OperatorPage() {
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link
-                href="/operador"
+                href={`/operador?placa=${encodedPlate}`}
                 className="inline-flex min-h-11 items-center justify-center rounded-md bg-white px-4 text-sm font-bold text-ink"
               >
                 SUNARP
               </Link>
               <Link
-                href="/operador/soat"
+                href={`/operador/soat?placa=${encodedPlate}`}
                 className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/25 px-4 text-sm font-bold text-white hover:bg-white hover:text-ink"
               >
                 SOAT / APESEG
@@ -50,7 +65,8 @@ export default function OperatorPage() {
         </section>
 
         <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <SunarpCopilot initialPlate="5075cd" />
+          <OperatorCaseStatus initialPlate={initialPlate} activeSource="sunarp" />
+          <SunarpCopilot initialPlate={initialPlate} />
         </section>
       </main>
       <SiteFooter />

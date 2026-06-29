@@ -31,7 +31,8 @@ const parseSunarpSchema = z.object({
     .uuid("ID de fuente no valido.")
     .optional()
     .or(z.literal(""))
-    .transform((value) => (value ? value : undefined))
+    .transform((value) => (value ? value : undefined)),
+  persist: z.boolean().optional().default(true)
 });
 
 export async function POST(request: Request) {
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
 
     const result = parseSunarpEvidence(parsed.data);
     const [savedSource, savedOperatorEvidence] = await Promise.all([
-      parsed.data.sourceResultId
+      parsed.data.sourceResultId && parsed.data.persist
         ? updateOrderSourceResult({
             id: parsed.data.sourceResultId,
             status: result.statusSuggestion,
@@ -61,12 +62,14 @@ export async function POST(request: Request) {
             evidenceUrl: parsed.data.evidenceUrl
           })
         : Promise.resolve(undefined),
-      saveSunarpOperatorEvidence({
-        plate: parsed.data.plate,
-        result,
-        rawText: parsed.data.rawText,
-        evidenceUrl: parsed.data.evidenceUrl
-      })
+      parsed.data.persist
+        ? saveSunarpOperatorEvidence({
+            plate: parsed.data.plate,
+            result,
+            rawText: parsed.data.rawText,
+            evidenceUrl: parsed.data.evidenceUrl
+          })
+        : Promise.resolve(undefined)
     ]);
 
     return NextResponse.json({
