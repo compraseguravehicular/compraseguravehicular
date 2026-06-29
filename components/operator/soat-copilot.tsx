@@ -101,7 +101,7 @@ export function SoatCopilot({
   const [imagePreviewUrl, setImagePreviewUrl] = useState("");
   const [isDraggingImage, setIsDraggingImage] = useState(false);
   const normalizedPlate = useMemo(() => cleanPlate(plate), [plate]);
-  const officialUrl = "https://webapp.apeseg.org.pe/consulta-soat/?source=apeseg";
+  const officialUrl = "https://www.apeseg.org.pe/consultas-soat/";
   const imageInputDisabled = ocrState.status === "reading" || state.status === "loading";
 
   useEffect(() => {
@@ -345,9 +345,9 @@ export function SoatCopilot({
             Captura el resultado SOAT sin reescribir la tabla
           </h2>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-slateText">
-            El agente verifico el portal real: APESEG usa CAPTCHA propio. Tu
-            resuelves la validacion oficial, luego pegas la tabla o subes una
-            captura y el sistema extrae vigencia, aseguradora, estado y alertas.
+            Usa la pagina oficial publica de APESEG. Tu resuelves la
+            validacion oficial, luego pegas la tabla o subes una captura y el
+            sistema extrae vigencia, aseguradora, estado y alertas.
           </p>
 
           <div className="mt-6 grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
@@ -391,7 +391,7 @@ export function SoatCopilot({
           </p>
           <div className="mt-4 grid gap-4">
             {[
-              ["1", "Abrir APESEG", "Usa el enlace directo de consulta."],
+              ["1", "Abrir APESEG", "Usa la pagina oficial publica."],
               ["2", "Resolver CAPTCHA", "Validacion humana oficial."],
               ["3", "Capturar resultado", "Copia tabla, HTML o screenshot."],
               ["4", "Analizar", "SOAT queda en el reporte vivo."]
