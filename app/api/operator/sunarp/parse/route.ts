@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isValidPlate, normalizePlate } from "@/lib/plates";
 import { updateOrderSourceResult } from "@/lib/orders/repository";
+import { saveSunarpOperatorEvidence } from "@/lib/operator/evidence-repository";
 import { parseSunarpEvidence } from "@/lib/operator/sunarp-parser";
 
 export const runtime = "nodejs";
@@ -50,20 +51,29 @@ export async function POST(request: Request) {
     }
 
     const result = parseSunarpEvidence(parsed.data);
-    const savedSource = parsed.data.sourceResultId
-      ? await updateOrderSourceResult({
-          id: parsed.data.sourceResultId,
-          status: result.statusSuggestion,
-          confidenceLevel: result.confidenceLevel,
-          summary: result.summary,
-          evidenceUrl: parsed.data.evidenceUrl
-        })
-      : undefined;
+    const [savedSource, savedOperatorEvidence] = await Promise.all([
+      parsed.data.sourceResultId
+        ? updateOrderSourceResult({
+            id: parsed.data.sourceResultId,
+            status: result.statusSuggestion,
+            confidenceLevel: result.confidenceLevel,
+            summary: result.summary,
+            evidenceUrl: parsed.data.evidenceUrl
+          })
+        : Promise.resolve(undefined),
+      saveSunarpOperatorEvidence({
+        plate: parsed.data.plate,
+        result,
+        rawText: parsed.data.rawText,
+        evidenceUrl: parsed.data.evidenceUrl
+      })
+    ]);
 
     return NextResponse.json({
       ok: true,
       result,
-      savedSource
+      savedSource,
+      savedOperatorEvidence
     });
   } catch (error) {
     console.error(error);

@@ -3,6 +3,10 @@ import { normalizePlate } from "@/lib/plates";
 import { packageLabels } from "@/lib/orders/pricing";
 import { getSourcesForPackage } from "@/lib/sources/registry";
 import { validateLiveSource } from "@/lib/live-sources/adapters";
+import {
+  getOperatorEvidenceForPlate,
+  type OperatorSourceEvidence
+} from "@/lib/operator/evidence-repository";
 import type {
   LivePlateReport,
   LiveReportMetrics,
@@ -26,6 +30,8 @@ const pendingStatuses = new Set([
   "failed"
 ]);
 
+const structuredResultStatuses = new Set(["api_result", "operator_evidence"]);
+
 function buildMetrics(sources: LiveSourceCheck[]): LiveReportMetrics {
   const checked = sources.length;
   const onlineOrProtected = sources.filter((source) =>
@@ -35,7 +41,9 @@ function buildMetrics(sources: LiveSourceCheck[]): LiveReportMetrics {
   return {
     total: sources.length,
     checked,
-    apiResults: sources.filter((source) => source.status === "api_result").length,
+    apiResults: sources.filter((source) =>
+      structuredResultStatuses.has(source.status)
+    ).length,
     providersConfigured: sources.filter((source) => source.providerConfigured).length,
     credentialMissing: sources.filter(
       (source) => source.status === "api_credentials_missing"
@@ -97,7 +105,7 @@ function assessLiveReportRisk(
 
   if (metrics.apiResults > 0) {
     positiveFactors.push(
-      `${metrics.apiResults} fuentes devolvieron datos por API/proveedor.`
+      `${metrics.apiResults} fuentes devolvieron datos estructurados o evidencia OCR.`
     );
   }
 
@@ -149,9 +157,15 @@ function assessLiveReportRisk(
     );
   }
 
-  alerts.push(
-    "No se confirmaron alertas vehiculares reales por API todavia; faltan credenciales o proveedores en fuentes criticas."
-  );
+  if (metrics.apiResults === 0) {
+    alerts.push(
+      "No se confirmaron alertas vehiculares reales por API/evidencia todavia; faltan credenciales o proveedores en fuentes criticas."
+    );
+  } else {
+    alerts.push(
+      `${metrics.apiResults} fuente(s) ya aportaron datos estructurados al reporte; aun faltan fuentes criticas por resolver.`
+    );
+  }
 
   if (metrics.credentialMissing + metrics.protectedPortals > 0) {
     alerts.push(
@@ -202,7 +216,7 @@ function buildSummary(
     .map((source) => source.sourceName);
   const headline =
     `Reporte tecnico generado para ${plate}: ${metrics.checked}/${metrics.total} fuentes revisadas y ` +
-    `${metrics.apiResults} fuentes con datos API estructurados.`;
+    `${metrics.apiResults} fuentes con datos estructurados.`;
   const whatsappText = [
     "Reporte Compra Segura Vehicular",
     `Placa: ${plate}`,
@@ -211,8 +225,8 @@ function buildSummary(
       timeZone: "America/Lima"
     })}`,
     `Fuentes revisadas: ${metrics.checked}/${metrics.total}`,
-    `Datos API recibidos: ${metrics.apiResults}`,
-    `Proveedores configurados: ${metrics.providersConfigured}`,
+    `Datos estructurados recibidos: ${metrics.apiResults}`,
+    `Integraciones activas: ${metrics.providersConfigured}`,
     `Integraciones pendientes: ${metrics.credentialMissing + metrics.protectedPortals + metrics.partnerRequired + metrics.matrixRequired}`,
     `Riesgo preliminar: ${risk.level} (${risk.score}/100)`,
     `Recomendacion: ${risk.recommendation}`,
@@ -222,7 +236,7 @@ function buildSummary(
     pendingSources.length
       ? `Pendientes tecnologicos: ${pendingSources.join(", ")}`
       : "Pendientes tecnologicos: ninguno",
-    "Nota: el sistema queda listo para tokens/proveedores reales; no simula datos ni usa bypass antiabuso."
+    "Nota: el sistema usa evidencia real o tokens/proveedores reales; no simula datos ni usa bypass antiabuso."
   ].join("\n");
 
   return {
@@ -259,6 +273,77 @@ function buildSummary(
   };
 }
 
+function liveConfidenceFromEvidence(
+  confidenceLevel: OperatorSourceEvidence["confidenceLevel"]
+) {
+  return confidenceLevel === "No aplica" ? "Media" : confidenceLevel;
+}
+
+function sourceMatchesEvidence(
+  source: LiveSourceCheck,
+  evidence: OperatorSourceEvidence
+) {
+  return (
+    source.sourceId === evidence.sourceId ||
+    source.sourceName.toLowerCase() === evidence.sourceName.toLowerCase()
+  );
+}
+
+function mergeOperatorEvidence(
+  sources: LiveSourceCheck[],
+  evidenceRows: OperatorSourceEvidence[]
+) {
+  if (!evidenceRows.length) {
+    return sources;
+  }
+
+  return sources.map((source) => {
+    const evidence = evidenceRows.find((row) =>
+      sourceMatchesEvidence(source, row)
+    );
+
+    if (!evidence) {
+      return source;
+    }
+
+    const evidenceUrl = evidence.evidenceUrl ?? source.officialUrl;
+
+    return {
+      ...source,
+      status: "operator_evidence" as const,
+      integrationMode: "operator_ocr" as const,
+      providerName: "Evidencia OCR supervisada",
+      providerConfigured: true,
+      requiredEnv: [],
+      availability:
+        source.availability === "offline" ? "online" : source.availability,
+      confidence: liveConfidenceFromEvidence(evidence.confidenceLevel),
+      checkedAt: evidence.checkedAt ?? source.checkedAt,
+      summary:
+        evidence.summary ??
+        `${source.sourceName}: evidencia OCR estructurada para ${source.plate}.`,
+      technicalFinding:
+        "Resultado oficial capturado por operador, leido con OCR y convertido a datos estructurados persistidos para el reporte.",
+      limitation:
+        "La evidencia OCR debe conservar la captura oficial y fecha/hora; para alto volumen conviene sumar API o convenio autorizado.",
+      operatorAction:
+        "Continuar con las siguientes fuentes, guardar evidencia y recalcular el riesgo final.",
+      nextTechnologyStep:
+        "Mantener esta fuente como evidencia OCR y, en paralelo, buscar API/proveedor autorizado para automatizacion escalable.",
+      evidence: [
+        {
+          label: "Evidencia OCR guardada",
+          url: evidenceUrl,
+          detail:
+            "Resultado SUNARP capturado y estructurado desde el operador interno."
+        },
+        ...source.evidence
+      ],
+      providerPayload: evidence.rawData
+    } satisfies LiveSourceCheck;
+  });
+}
+
 export async function runLivePlateReport(
   input: LiveReportInput
 ): Promise<LivePlateReport> {
@@ -267,9 +352,13 @@ export async function runLivePlateReport(
   const packageLabel = packageLabels[packageType];
   const generatedAt = new Date().toISOString();
   const sourceDefinitions = getSourcesForPackage(packageType);
-  const sources = await Promise.all(
-    sourceDefinitions.map((source) => validateLiveSource(source, plate))
-  );
+  const [validatedSources, operatorEvidence] = await Promise.all([
+    Promise.all(
+      sourceDefinitions.map((source) => validateLiveSource(source, plate))
+    ),
+    getOperatorEvidenceForPlate(plate)
+  ]);
+  const sources = mergeOperatorEvidence(validatedSources, operatorEvidence);
   const metrics = buildMetrics(sources);
   const risk = assessLiveReportRisk(sources, metrics);
   const summary = buildSummary(

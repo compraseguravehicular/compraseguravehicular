@@ -98,6 +98,7 @@ const packageValues = new Set(["express", "compra_segura", "pro"]);
 
 const statusLabels: Record<string, string> = {
   api_result: "API conectada",
+  operator_evidence: "Evidencia OCR",
   api_credentials_missing: "Falta API key",
   worker_candidate: "Worker candidato",
   portal_protected: "Portal protegido",
@@ -110,6 +111,7 @@ const statusLabels: Record<string, string> = {
 
 const statusClasses: Record<string, string> = {
   api_result: "border-brand-100 bg-brand-50 text-brand-900",
+  operator_evidence: "border-emerald-200 bg-emerald-50 text-emerald-900",
   api_credentials_missing: "border-amber-200 bg-amber-50 text-amber-900",
   worker_candidate: "border-sky-200 bg-sky-50 text-sky-900",
   portal_protected: "border-orange-200 bg-orange-50 text-orange-900",
@@ -341,7 +343,7 @@ export function LiveReportRunner({
                   </h2>
                   <p className="mt-2 text-sm leading-6 text-slateText">
                     Generado para {state.report.packageLabel}. Listo para
-                    WhatsApp, PDF y conexion con proveedores reales.
+                    WhatsApp, PDF, evidencia OCR y proveedores reales.
                   </p>
                 </div>
                 <button
@@ -367,7 +369,7 @@ export function LiveReportRunner({
                 icon: ShieldCheck
               },
               {
-                label: "Datos API",
+                label: "Datos reales",
                 value: state.report.metrics.apiResults,
                 icon: CheckCircle2
               },
@@ -406,8 +408,8 @@ export function LiveReportRunner({
               <AlertTriangle aria-hidden="true" className="mt-0.5 shrink-0" size={19} />
               <p>
                 Este reporte ya usa una capa de integracion. Cuando agregues
-                tokens de proveedor, la misma pantalla recibira datos
-                estructurados sin cambiar la experiencia del usuario.
+                evidencia OCR o tokens de proveedor, la misma pantalla recibira
+                datos estructurados sin cambiar la experiencia del usuario.
               </p>
             </div>
           </div>

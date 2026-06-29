@@ -2,6 +2,7 @@ import type { PackageType, RiskAssessment } from "@/lib/domain";
 
 export type LiveSourceStatus =
   | "api_result"
+  | "operator_evidence"
   | "api_credentials_missing"
   | "worker_candidate"
   | "portal_protected"
@@ -13,6 +14,7 @@ export type LiveSourceStatus =
 
 export type IntegrationMode =
   | "provider_api"
+  | "operator_ocr"
   | "browser_worker"
   | "partner_api"
   | "data_matrix"
