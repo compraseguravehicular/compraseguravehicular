@@ -215,7 +215,13 @@ function decodeHtmlEntities(value: string) {
 }
 
 function normalizeEvidenceText(value: string) {
-  return stripHtml(value.replace(/`n/g, "\n").replace(/\\n/g, "\n"))
+  return stripHtml(
+    value
+      .replace(/`n/g, "\n")
+      .replace(/\\n/g, "\n")
+      .replace(/`t/g, "\t")
+      .replace(/\\t/g, "\t")
+  )
     .replace(/\r/g, "\n")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
@@ -373,8 +379,10 @@ function extractDelimitedRows(rawText: string) {
   return rawText
     .replace(/`n/g, "\n")
     .replace(/\\n/g, "\n")
+    .replace(/`t/g, "\t")
+    .replace(/\\t/g, "\t")
     .split(/\r?\n+/)
-    .map((line) => line.split(/\t+/).map(cleanField))
+    .map((line) => line.split("\t").map(cleanField))
     .filter((row) => row.length > 1 && row.some(Boolean));
 }
 
