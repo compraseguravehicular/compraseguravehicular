@@ -95,6 +95,29 @@ const packageOptions = [
 ];
 
 const packageValues = new Set(["express", "compra_segura", "pro"]);
+const operatorPaths: Record<string, string> = {
+  sunarp_consulta_vehicular: "/operador",
+  apeseg_soat: "/operador/soat"
+};
+const completedStatuses = new Set(["api_result", "operator_evidence"]);
+const providerPendingStatuses = new Set([
+  "api_credentials_missing",
+  "portal_protected",
+  "session_protected",
+  "partner_required"
+]);
+
+function packageHelperText(value: string) {
+  if (value === "express") {
+    return "Cobertura rapida: fuentes base de mayor impacto.";
+  }
+
+  if (value === "compra_segura") {
+    return "Cobertura comercial recomendada para decision de compra.";
+  }
+
+  return "Cobertura completa para pruebas y casos Pro.";
+}
 
 const statusLabels: Record<string, string> = {
   api_result: "API conectada",
@@ -124,6 +147,106 @@ const statusClasses: Record<string, string> = {
 
 function cleanPlateInput(value: string) {
   return value.toUpperCase().replace(/[^A-Z0-9-]/g, "");
+}
+
+function actionPriority(source: LiveReport["sources"][number]) {
+  const fixedPriority: Record<string, number> = {
+    mtc_citv: 10,
+    sat_lima_papeletas: 20,
+    callao_papeletas: 30,
+    sutran_infracciones: 40,
+    atu_infracciones: 50
+  };
+
+  if (completedStatuses.has(source.status)) {
+    return 1000;
+  }
+
+  if (operatorPaths[source.sourceId]) {
+    return 0;
+  }
+
+  return fixedPriority[source.sourceId] ?? 100;
+}
+
+function actionForSource(source: LiveReport["sources"][number], plate: string) {
+  const operatorPath = operatorPaths[source.sourceId];
+  const encodedPlate = encodeURIComponent(plate);
+
+  if (completedStatuses.has(source.status)) {
+    return {
+      lane: "Validado",
+      title: "Evidencia lista",
+      detail: "Ya aporta datos estructurados al reporte vivo.",
+      href: operatorPath ? `${operatorPath}?placa=${encodedPlate}` : source.officialUrl,
+      cta: operatorPath ? "Revisar copiloto" : "Ver fuente",
+      tone: "done"
+    };
+  }
+
+  if (operatorPath) {
+    return {
+      lane: "Hacer ahora",
+      title: "Resolver con copiloto",
+      detail: "Abrir fuente oficial, pegar evidencia y recalcular reporte.",
+      href: `${operatorPath}?placa=${encodedPlate}`,
+      cta: "Abrir copiloto",
+      tone: "action"
+    };
+  }
+
+  if (providerPendingStatuses.has(source.status)) {
+    return {
+      lane: "API/proveedor",
+      title: "Conectar proveedor",
+      detail: source.requiredEnv.length
+        ? `Faltan ${source.requiredEnv.join(", ")}.`
+        : "Requiere convenio, API o credenciales autorizadas.",
+      href: source.officialUrl,
+      cta: "Ver fuente",
+      tone: "provider"
+    };
+  }
+
+  if (source.integrationMode === "browser_worker") {
+    return {
+      lane: "Worker",
+      title: "Diseñar worker supervisado",
+      detail: "Requiere flujo Playwright versionado, evidencia y control de cambios.",
+      href: source.officialUrl,
+      cta: "Ver fuente",
+      tone: "worker"
+    };
+  }
+
+  return {
+    lane: "Pendiente",
+    title: "Revisar fuente",
+    detail: source.nextTechnologyStep,
+    href: source.officialUrl,
+    cta: "Ver fuente",
+    tone: "pending"
+  };
+}
+
+function actionToneClass(tone: string) {
+  if (tone === "done") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-950";
+  }
+
+  if (tone === "action") {
+    return "border-brand-100 bg-brand-50 text-brand-950";
+  }
+
+  if (tone === "provider") {
+    return "border-amber-200 bg-amber-50 text-amber-950";
+  }
+
+  if (tone === "worker") {
+    return "border-sky-200 bg-sky-50 text-sky-950";
+  }
+
+  return "border-line bg-surface text-slateText";
 }
 
 function riskClass(level: LiveReport["risk"]["level"]) {
@@ -271,7 +394,7 @@ export function LiveReportRunner({
             ))}
           </select>
           <span className="text-xs leading-5 text-slateText">
-            Para pruebas usamos todas las fuentes posibles.
+            {packageHelperText(packageType)}
           </span>
         </label>
 
@@ -413,6 +536,80 @@ export function LiveReportRunner({
               </p>
             </div>
           </div>
+
+          <section className="rounded-md border border-line bg-white p-5 shadow-panel">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-sm font-bold uppercase tracking-normal text-slateText">
+                  Cola operativa
+                </p>
+                <h2 className="mt-1 text-2xl font-black text-ink">
+                  Siguiente paso por fuente
+                </h2>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-slateText">
+                  Usa esta cola como vendedor: primero resuelve lo que tiene
+                  copiloto, luego escala API/proveedor y deja workers como
+                  automatizacion supervisada.
+                </p>
+              </div>
+              <a
+                href={`/operador?placa=${encodeURIComponent(state.report.plate)}`}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-brand-700 px-4 text-sm font-bold text-white hover:bg-brand-900"
+              >
+                Abrir operador
+                <ExternalLink aria-hidden="true" size={17} />
+              </a>
+            </div>
+
+            <div className="mt-5 grid gap-3 lg:grid-cols-2">
+              {[...state.report.sources]
+                .sort((left, right) => actionPriority(left) - actionPriority(right))
+                .map((source) => {
+                  const action = actionForSource(source, state.report.plate);
+
+                  return (
+                    <div
+                      key={source.sourceId}
+                      className={[
+                        "rounded-md border p-4",
+                        actionToneClass(action.tone)
+                      ].join(" ")}
+                    >
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded-md bg-white/70 px-2.5 py-1 text-xs font-black uppercase tracking-normal">
+                              {action.lane}
+                            </span>
+                            <span className="text-xs font-bold">
+                              {statusLabels[source.status] ?? source.status}
+                            </span>
+                          </div>
+                          <h3 className="mt-3 text-base font-black text-ink">
+                            {source.sourceName}
+                          </h3>
+                          <p className="mt-1 text-sm font-bold">
+                            {action.title}
+                          </p>
+                          <p className="mt-2 text-sm leading-6">
+                            {action.detail}
+                          </p>
+                        </div>
+                        <a
+                          href={action.href}
+                          target={action.href.startsWith("http") ? "_blank" : undefined}
+                          rel={action.href.startsWith("http") ? "noreferrer" : undefined}
+                          className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-md border border-current bg-white/70 px-3 text-sm font-bold hover:bg-white"
+                        >
+                          {action.cta}
+                          <ExternalLink aria-hidden="true" size={16} />
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </section>
 
           <div className="grid gap-4">
             {state.report.sources.map((source) => (
