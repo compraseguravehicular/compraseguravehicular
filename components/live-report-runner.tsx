@@ -97,7 +97,8 @@ const packageOptions = [
 const packageValues = new Set(["express", "compra_segura", "pro"]);
 const operatorPaths: Record<string, string> = {
   sunarp_consulta_vehicular: "/operador",
-  apeseg_soat: "/operador/soat"
+  apeseg_soat: "/operador/soat",
+  sat_lima_papeletas: "/operador/sat"
 };
 const completedStatuses = new Set(["api_result", "operator_evidence"]);
 const providerPendingStatuses = new Set([

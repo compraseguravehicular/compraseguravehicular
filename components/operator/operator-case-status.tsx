@@ -35,6 +35,11 @@ const trackedSources = [
     sourceId: "apeseg_soat",
     sourceName: "SOAT / APESEG",
     path: "/operador/soat"
+  },
+  {
+    sourceId: "sat_lima_papeletas",
+    sourceName: "SAT Lima",
+    path: "/operador/sat"
   }
 ];
 
@@ -86,7 +91,7 @@ export function OperatorCaseStatus({
   activeSource
 }: {
   initialPlate: string;
-  activeSource: "sunarp" | "soat";
+  activeSource: "sunarp" | "soat" | "sat";
 }) {
   const [plate, setPlate] = useState(initialPlate);
   const [state, setState] = useState<EvidenceState>({ status: "loading" });
@@ -194,6 +199,8 @@ export function OperatorCaseStatus({
             (activeSource === "sunarp" &&
               source.sourceId === "sunarp_consulta_vehicular") ||
             (activeSource === "soat" && source.sourceId === "apeseg_soat");
+          const isSatActive =
+            activeSource === "sat" && source.sourceId === "sat_lima_papeletas";
 
           return (
             <Link
@@ -201,7 +208,7 @@ export function OperatorCaseStatus({
               href={`${source.path}?placa=${encodedPlate}`}
               className={[
                 "rounded-md border p-4 transition hover:border-brand-700 hover:bg-brand-50",
-                isActive ? "border-ink bg-surface" : "border-line bg-white"
+                isActive || isSatActive ? "border-ink bg-surface" : "border-line bg-white"
               ].join(" ")}
             >
               <div className="flex items-start justify-between gap-3">

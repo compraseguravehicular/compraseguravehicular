@@ -62,6 +62,12 @@ export default async function SoatOperatorPage({
               >
                 SOAT / APESEG
               </Link>
+              <Link
+                href={`/operador/sat?placa=${encodedPlate}`}
+                className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/25 px-4 text-sm font-bold text-white hover:bg-white hover:text-ink"
+              >
+                SAT Lima
+              </Link>
             </div>
           </div>
         </section>
