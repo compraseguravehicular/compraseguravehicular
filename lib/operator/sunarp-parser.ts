@@ -3,9 +3,11 @@ import { compactPlate, normalizePlate } from "@/lib/plates";
 
 export type SunarpVehicleFields = {
   plate?: string;
+  activePlate?: string;
   previousPlate?: string;
   brand?: string;
   model?: string;
+  modelYear?: string;
   color?: string;
   serialNumber?: string;
   vin?: string;
@@ -13,6 +15,7 @@ export type SunarpVehicleFields = {
   ownerName?: string;
   registryOffice?: string;
   vehicleStatus?: string;
+  annotations?: string;
   theftAnnotation?: string;
 };
 
@@ -35,7 +38,7 @@ export type ParsedSunarpResult = {
   reportNotes: string[];
 };
 
-const fieldPatterns: Array<{
+const fieldDefinitions: Array<{
   key: keyof SunarpVehicleFields;
   label: string;
   patterns: RegExp[];
@@ -44,70 +47,95 @@ const fieldPatterns: Array<{
     key: "plate",
     label: "Placa",
     patterns: [
-      /(?:placa actual|nro\.?\s*placa|numero de placa|placa)\s*:?\s*([A-Z0-9-]{5,10})/i
+      /(?:N\s*PLACA|NRO\.?\s*PLACA|NUMERO\s+DE\s+PLACA)\s*:?\s*([A-Z0-9-]{5,10})/i,
+      /(?:PLACA)\s*:?\s*([A-Z0-9-]{5,10})/i
     ]
+  },
+  {
+    key: "activePlate",
+    label: "Placa vigente",
+    patterns: [/(?:PLACA\s+VIGENTE|PLACA\s+ACTUAL)\s*:?\s*([A-Z0-9-]{5,10})/i]
   },
   {
     key: "previousPlate",
     label: "Placa anterior",
-    patterns: [
-      /(?:placa anterior|placa antigua)\s*:?\s*([A-Z0-9-]{5,10})/i
-    ]
-  },
-  {
-    key: "brand",
-    label: "Marca",
-    patterns: [/(?:marca)\s*:?\s*([^\n\r|]{2,60})/i]
-  },
-  {
-    key: "model",
-    label: "Modelo",
-    patterns: [/(?:modelo)\s*:?\s*([^\n\r|]{2,80})/i]
-  },
-  {
-    key: "color",
-    label: "Color",
-    patterns: [/(?:color)\s*:?\s*([^\n\r|]{2,60})/i]
+    patterns: [/(?:PLACA\s+ANTERIOR|PLACA\s+ANTIGUA)\s*:?\s*([A-Z0-9-]{3,40})/i]
   },
   {
     key: "serialNumber",
     label: "Serie",
-    patterns: [/(?:nro\.?\s*serie|numero de serie|serie)\s*:?\s*([A-Z0-9-]{4,40})/i]
+    patterns: [/(?:N\s*SERIE|NRO\.?\s*SERIE|NUMERO\s+DE\s+SERIE|SERIE)\s*:?\s*([A-Z0-9-]{4,40})/i]
   },
   {
     key: "vin",
     label: "VIN",
-    patterns: [/(?:vin)\s*:?\s*([A-Z0-9-]{4,40})/i]
+    patterns: [/(?:N\s*VIN|VIN)\s*:?\s*([A-Z0-9-]{4,40})/i]
   },
   {
     key: "engineNumber",
     label: "Motor",
-    patterns: [/(?:nro\.?\s*motor|numero de motor|motor)\s*:?\s*([A-Z0-9-]{3,40})/i]
+    patterns: [/(?:N\s*MOTOR|NRO\.?\s*MOTOR|NUMERO\s+DE\s+MOTOR|MOTOR)\s*:?\s*([A-Z0-9-]{3,40})/i]
   },
   {
-    key: "ownerName",
-    label: "Titular",
-    patterns: [
-      /(?:propietario|titular|nombre del propietario)\s*:?\s*([^\n\r|]{3,120})/i
-    ]
+    key: "color",
+    label: "Color",
+    patterns: [/(?:COLOR)\s*:?\s*([^\n\r|]{2,60})/i]
+  },
+  {
+    key: "brand",
+    label: "Marca",
+    patterns: [/(?:MARCA)\s*:?\s*([^\n\r|]{2,60})/i]
+  },
+  {
+    key: "model",
+    label: "Modelo",
+    patterns: [/(?:MODELO)\s*:?\s*([^\n\r|]{2,80})/i]
+  },
+  {
+    key: "modelYear",
+    label: "Ano de modelo",
+    patterns: [/(?:ANO\s+DE\s+MODELO|ANIO\s+DE\s+MODELO)\s*:?\s*([0-9]{4})/i]
   },
   {
     key: "registryOffice",
     label: "Sede registral",
-    patterns: [/(?:sede|oficina registral|zona registral)\s*:?\s*([^\n\r|]{3,100})/i]
+    patterns: [/(?:SEDE|OFICINA\s+REGISTRAL|ZONA\s+REGISTRAL)\s*:?\s*([^\n\r|]{3,100})/i]
   },
   {
     key: "vehicleStatus",
     label: "Estado",
-    patterns: [/(?:estado del vehiculo|estado)\s*:?\s*([^\n\r|]{2,80})/i]
+    patterns: [/(?:ESTADO\s+DEL\s+VEHICULO|ESTADO)\s*:?\s*([^\n\r|]{2,80})/i]
+  },
+  {
+    key: "annotations",
+    label: "Anotaciones",
+    patterns: [/(?:ANOTACIONES|ANOTACION)\s*:?\s*([^\n\r|]{2,120})/i]
   },
   {
     key: "theftAnnotation",
     label: "Anotacion de robo",
     patterns: [
-      /(?:anotaci[oó]n\s+de\s+robo|anotacion policial|robo)\s*:?\s*([^\n\r|]{2,120})/i
+      /(?:ANOTACION\s+DE\s+ROBO|ANOTACION\s+POLICIAL|ROBO)\s*:?\s*([^\n\r|]{2,120})/i
     ]
   }
+];
+
+const fieldRowsOrder: Array<{ key: keyof SunarpVehicleFields; label: string }> = [
+  { key: "plate", label: "Placa" },
+  { key: "activePlate", label: "Placa vigente" },
+  { key: "previousPlate", label: "Placa anterior" },
+  { key: "brand", label: "Marca" },
+  { key: "model", label: "Modelo" },
+  { key: "modelYear", label: "Ano de modelo" },
+  { key: "color", label: "Color" },
+  { key: "serialNumber", label: "Serie" },
+  { key: "vin", label: "VIN" },
+  { key: "engineNumber", label: "Motor" },
+  { key: "ownerName", label: "Propietarios" },
+  { key: "registryOffice", label: "Sede registral" },
+  { key: "vehicleStatus", label: "Estado" },
+  { key: "annotations", label: "Anotaciones" },
+  { key: "theftAnnotation", label: "Anotacion de robo" }
 ];
 
 function stripHtml(value: string) {
@@ -136,30 +164,111 @@ function normalizeEvidenceText(value: string) {
     .trim();
 }
 
+function normalizeForMatching(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[°º]/g, " ")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .toUpperCase();
+}
+
 function cleanField(value: string) {
   return value
     .replace(/\s{2,}/g, " ")
     .replace(/^\W+|\W+$/g, "")
     .trim()
-    .slice(0, 140);
+    .slice(0, 180);
+}
+
+function cleanWatermarkNoise(value: string) {
+  return value
+    .replace(/PUBLICIDAD\s+REGISTRAL/gi, " ")
+    .replace(/ESTA\s+INFORMACION\s+NO\s+CONSTITUYE/gi, " ")
+    .replace(/SUNARP/gi, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function buildSearchText(evidenceText: string) {
+  const normalized = normalizeForMatching(evidenceText);
+
+  return normalized
+    .replace(/\bN\s+(PLACA|SERIE|VIN|MOTOR)\b/g, "N $1")
+    .replace(/[ \t]+/g, " ")
+    .replace(/[ \t]*\n[ \t]*/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function extractField(text: string, patterns: RegExp[]) {
   for (const pattern of patterns) {
     const match = text.match(pattern);
     if (match?.[1]) {
-      return cleanField(match[1]);
+      return cleanField(cleanWatermarkNoise(match[1]));
     }
   }
 
   return undefined;
 }
 
+function evidenceLines(evidenceText: string) {
+  return evidenceText
+    .split(/\n+/)
+    .map((line) => cleanField(line))
+    .filter(Boolean);
+}
+
+function isLikelyFieldLabel(line: string) {
+  const normalized = normalizeForMatching(line);
+
+  return /^(N\s*)?(PLACA|SERIE|VIN|MOTOR|COLOR|MARCA|MODELO|ESTADO|ANOTACIONES|SEDE|ANO|ANIO)\b/.test(
+    normalized
+  );
+}
+
+function extractOwners(evidenceText: string) {
+  const lines = evidenceLines(evidenceText);
+  const ownerIndex = lines.findIndex((line) =>
+    /PROPIETARIO/.test(normalizeForMatching(line))
+  );
+
+  if (ownerIndex < 0) {
+    const inlineMatch = buildSearchText(evidenceText).match(
+      /(?:PROPIETARIO\(S\)|PROPIETARIOS?|TITULAR|NOMBRE\s+DEL\s+PROPIETARIO)\s*:?\s*([^\n\r|]{3,160})/i
+    );
+    return inlineMatch?.[1] ? cleanField(inlineMatch[1]) : undefined;
+  }
+
+  const owners: string[] = [];
+
+  for (const line of lines.slice(ownerIndex + 1)) {
+    const normalized = normalizeForMatching(line);
+
+    if (
+      /^\d{1,2}\/\d{1,2}\/\d{4}/.test(normalized) ||
+      /REALIZAR\s+OTRA\s+BUSQUEDA/.test(normalized) ||
+      /CONSULTA\s+VEHICULAR/.test(normalized) ||
+      isLikelyFieldLabel(line)
+    ) {
+      break;
+    }
+
+    const cleaned = cleanField(cleanWatermarkNoise(line));
+    if (cleaned && cleaned.length >= 4) {
+      owners.push(cleaned);
+    }
+  }
+
+  return owners.length ? owners.join(" / ") : undefined;
+}
+
 function scoreFields(fields: SunarpVehicleFields, requestedPlate: string) {
   const fieldCount = Object.values(fields).filter(Boolean).length;
-  const extractedPlate = fields.plate ? compactPlate(fields.plate) : undefined;
+  const extractedPlate = fields.plate ?? fields.activePlate;
   const plateMatches = extractedPlate
-    ? extractedPlate === compactPlate(requestedPlate)
+    ? compactPlate(extractedPlate) === compactPlate(requestedPlate)
     : false;
   const coreScore = Math.min(70, fieldCount * 8);
   const plateScore = plateMatches ? 25 : extractedPlate ? 8 : 0;
@@ -168,22 +277,32 @@ function scoreFields(fields: SunarpVehicleFields, requestedPlate: string) {
 }
 
 function alertTerms(text: string, fields: SunarpVehicleFields) {
-  const normalized = text.toLowerCase();
+  const normalized = normalizeForMatching(text);
   const alerts: string[] = [];
 
-  if (normalized.includes("robo") && !normalized.includes("sin anotacion")) {
+  if (
+    normalized.includes("ROBO") &&
+    !/SIN\s+ANOTACION|NO\s+REGISTRA|NINGUNA/.test(normalized)
+  ) {
     alerts.push("SUNARP menciona robo o anotacion relacionada; revisar evidencia oficial antes de avanzar.");
   }
 
-  if (fields.theftAnnotation && !/sin|no registra|ninguna/i.test(fields.theftAnnotation)) {
+  if (
+    fields.theftAnnotation &&
+    !/sin|no registra|ninguna/i.test(fields.theftAnnotation)
+  ) {
     alerts.push(`Anotacion de robo: ${fields.theftAnnotation}.`);
+  }
+
+  if (fields.annotations && !/sin|no registra|ninguna/i.test(fields.annotations)) {
+    alerts.push(`Anotacion registral: ${fields.annotations}.`);
   }
 
   if (fields.vehicleStatus && /baja|inactivo|suspend|bloque/i.test(fields.vehicleStatus)) {
     alerts.push(`Estado registral sensible: ${fields.vehicleStatus}.`);
   }
 
-  if (/no se encontr|sin resultado|no registra veh/i.test(normalized)) {
+  if (/NO\s+SE\s+ENCONTR|SIN\s+RESULTADO|NO\s+REGISTRA\s+VEH/i.test(normalized)) {
     alerts.push("La fuente no encontro datos concluyentes para la placa.");
   }
 
@@ -199,11 +318,13 @@ function buildSummary(
   const parts = [
     fields.brand,
     fields.model,
+    fields.modelYear ? `ano ${fields.modelYear}` : undefined,
     fields.color ? `color ${fields.color}` : undefined,
     fields.vin ? `VIN ${fields.vin}` : fields.serialNumber ? `serie ${fields.serialNumber}` : undefined,
     fields.engineNumber ? `motor ${fields.engineNumber}` : undefined,
-    fields.ownerName ? `titular ${fields.ownerName}` : undefined,
-    fields.vehicleStatus ? `estado ${fields.vehicleStatus}` : undefined
+    fields.ownerName ? `propietarios ${fields.ownerName}` : undefined,
+    fields.vehicleStatus ? `estado ${fields.vehicleStatus}` : undefined,
+    fields.annotations ? `anotaciones ${fields.annotations}` : undefined
   ].filter(Boolean);
 
   const base = parts.length
@@ -220,17 +341,28 @@ export function parseSunarpEvidence(input: {
 }): ParsedSunarpResult {
   const plate = normalizePlate(input.plate);
   const evidenceText = normalizeEvidenceText(input.rawText);
+  const searchText = buildSearchText(evidenceText);
   const extractedFields: SunarpVehicleFields = {};
 
-  for (const field of fieldPatterns) {
-    const value = extractField(evidenceText, field.patterns);
+  for (const field of fieldDefinitions) {
+    const value = extractField(searchText, field.patterns);
     if (value) {
       extractedFields[field.key] = value;
     }
   }
 
-  if (!extractedFields.plate && evidenceText.includes(compactPlate(plate))) {
+  const ownerName = extractOwners(evidenceText);
+  if (ownerName) {
+    extractedFields.ownerName = ownerName;
+  }
+
+  const compactRequestedPlate = compactPlate(plate);
+  if (!extractedFields.plate && searchText.includes(compactRequestedPlate)) {
     extractedFields.plate = plate;
+  }
+
+  if (!extractedFields.activePlate && extractedFields.plate) {
+    extractedFields.activePlate = extractedFields.plate;
   }
 
   const alerts = alertTerms(evidenceText, extractedFields);
@@ -244,7 +376,7 @@ export function parseSunarpEvidence(input: {
         ? "consulted_no_alert"
         : "requires_manual_document";
   const summary = buildSummary(plate, extractedFields, alerts, confidenceScore);
-  const fieldRows = fieldPatterns
+  const fieldRows = fieldRowsOrder
     .map((field) => ({
       label: field.label,
       value: extractedFields[field.key]
@@ -256,7 +388,7 @@ export function parseSunarpEvidence(input: {
       ? `Hay observaciones: ${alerts.join(" ")}`
       : "No veo alerta registral evidente en la evidencia capturada.",
     fieldRows.length
-      ? `Datos principales: ${fieldRows.slice(0, 5).map((field) => `${field.label} ${field.value}`).join(", ")}.`
+      ? `Datos principales: ${fieldRows.slice(0, 6).map((field) => `${field.label} ${field.value}`).join(", ")}.`
       : "La captura necesita una segunda revision porque no se extrajeron suficientes campos."
   ].join(" ");
 
@@ -276,7 +408,7 @@ export function parseSunarpEvidence(input: {
     reportNotes: [
       "Guardar captura o PDF oficial como evidencia.",
       "Verificar que la placa visible coincida con la placa del cliente.",
-      "Si el texto extraido no muestra titular/VIN/motor, repetir captura desde la seccion de resultados."
+      "Si el OCR no muestra titular/VIN/motor, subir una captura mas nitida o copiar el texto visible del resultado."
     ]
   };
 }

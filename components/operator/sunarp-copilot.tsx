@@ -8,10 +8,12 @@ import {
   Clipboard,
   ExternalLink,
   FileCheck2,
+  FileImage,
   Loader2,
   MonitorUp,
   ScanText,
-  ShieldCheck
+  ShieldCheck,
+  Upload
 } from "lucide-react";
 import { track } from "@vercel/analytics/react";
 
@@ -37,6 +39,17 @@ type ParseState =
       };
     }
   | { status: "error"; message: string };
+
+type OcrState =
+  | { status: "idle" }
+  | { status: "reading"; fileName: string; progress: number }
+  | { status: "success"; fileName: string; progress: number }
+  | { status: "error"; fileName?: string; message: string };
+
+type OcrProgressMessage = {
+  status?: string;
+  progress?: number;
+};
 
 function cleanPlate(value: string) {
   return value.toUpperCase().replace(/[^A-Z0-9-]/g, "");
@@ -65,6 +78,8 @@ export function SunarpCopilot({
   const [rawText, setRawText] = useState("");
   const [evidenceUrl, setEvidenceUrl] = useState("");
   const [state, setState] = useState<ParseState>({ status: "idle" });
+  const [ocrState, setOcrState] = useState<OcrState>({ status: "idle" });
+  const [imagePreviewUrl, setImagePreviewUrl] = useState("");
   const normalizedPlate = useMemo(() => cleanPlate(plate), [plate]);
   const officialUrl = "https://consultavehicular.sunarp.gob.pe/";
 
@@ -76,12 +91,29 @@ export function SunarpCopilot({
     }
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (imagePreviewUrl) {
+        URL.revokeObjectURL(imagePreviewUrl);
+      }
+    };
+  }, [imagePreviewUrl]);
+
   async function copyPlate() {
     await navigator.clipboard.writeText(normalizedPlate);
   }
 
-  async function analyzeEvidence(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function submitEvidence(textToAnalyze = rawText) {
+    const evidence = textToAnalyze.trim();
+
+    if (evidence.length < 20) {
+      setState({
+        status: "error",
+        message: "Necesito una captura OCR o texto oficial con mas contenido para analizar."
+      });
+      return;
+    }
+
     setState({ status: "loading" });
 
     try {
@@ -90,7 +122,7 @@ export function SunarpCopilot({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           plate: normalizedPlate,
-          rawText,
+          rawText: evidence,
           evidenceUrl,
           sourceResultId
         })
@@ -122,6 +154,68 @@ export function SunarpCopilot({
         status: "error",
         message: "No se pudo conectar con el servidor."
       });
+    }
+  }
+
+  async function analyzeEvidence(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await submitEvidence();
+  }
+
+  async function handleImageUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    setImagePreviewUrl((currentUrl) => {
+      if (currentUrl) {
+        URL.revokeObjectURL(currentUrl);
+      }
+
+      return previewUrl;
+    });
+    setState({ status: "idle" });
+    setOcrState({ status: "reading", fileName: file.name, progress: 0 });
+
+    try {
+      const { recognize } = await import("tesseract.js");
+      const result = await recognize(file, "eng", {
+        logger: (message: OcrProgressMessage) => {
+          if (message.status === "recognizing text" && typeof message.progress === "number") {
+            setOcrState({
+              status: "reading",
+              fileName: file.name,
+              progress: Math.round(message.progress * 100)
+            });
+          }
+        }
+      });
+      const extractedText = result.data.text.trim();
+
+      if (extractedText.length < 20) {
+        setOcrState({
+          status: "error",
+          fileName: file.name,
+          message: "El OCR no pudo leer suficiente texto. Sube una captura mas nitida o acercada al resultado."
+        });
+        return;
+      }
+
+      setRawText(extractedText);
+      setOcrState({ status: "success", fileName: file.name, progress: 100 });
+      await submitEvidence(extractedText);
+    } catch {
+      setOcrState({
+        status: "error",
+        fileName: file.name,
+        message: "No se pudo leer la imagen. Prueba con PNG/JPG nitido o pega el texto manualmente."
+      });
+    } finally {
+      input.value = "";
     }
   }
 
@@ -193,7 +287,7 @@ export function SunarpCopilot({
             {[
               ["1", "Copiar placa", "Usa la placa normalizada."],
               ["2", "Abrir fuente", "Completa la verificacion oficial."],
-              ["3", "Pegar resultado", "Texto, HTML o contenido visible."],
+              ["3", "Subir captura", "El OCR lee la imagen del resultado."],
               ["4", "Analizar", "Resumen y campos listos para reporte."]
             ].map(([step, title, detail]) => (
               <div key={step} className="flex gap-3">
@@ -219,18 +313,87 @@ export function SunarpCopilot({
         <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
           <label className="grid min-w-0 gap-2">
             <span className="text-sm font-bold text-ink">
-              Resultado oficial pegado
+              Texto oficial extraido o pegado
             </span>
             <textarea
               value={rawText}
               onChange={(event) => setRawText(event.target.value)}
               rows={11}
-              placeholder="Pega aqui el texto visible del resultado SUNARP o el HTML copiado de la pagina..."
+              placeholder="Si SUNARP muestra una imagen, sube la captura a la derecha. Si ya tienes texto, pegalo aqui..."
               className="rounded-md border border-line bg-surface px-3 py-3 text-sm leading-6 outline-none focus:border-brand-700"
             />
           </label>
 
           <div className="grid min-w-0 gap-4">
+            <label className="grid min-w-0 cursor-pointer gap-3 rounded-md border-2 border-dashed border-brand-200 bg-brand-50 p-4 transition hover:border-brand-700 hover:bg-white">
+              <span className="flex items-center gap-2 text-sm font-bold text-ink">
+                <FileImage aria-hidden="true" size={18} />
+                Subir imagen SUNARP
+              </span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="sr-only"
+                disabled={ocrState.status === "reading" || state.status === "loading"}
+              />
+              <span className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-brand-700 px-4 text-sm font-bold text-white">
+                {ocrState.status === "reading" ? (
+                  <Loader2 aria-hidden="true" className="animate-spin" size={18} />
+                ) : (
+                  <Upload aria-hidden="true" size={18} />
+                )}
+                Elegir captura
+              </span>
+              <span className="text-xs leading-5 text-slateText">
+                Acepta PNG, JPG o captura de pantalla. El sistema lee la imagen
+                y analiza la evidencia automaticamente.
+              </span>
+            </label>
+
+            {ocrState.status === "reading" ? (
+              <div className="rounded-md border border-line bg-white p-4">
+                <div className="flex items-center justify-between gap-3 text-xs font-bold text-slateText">
+                  <span className="truncate">{ocrState.fileName}</span>
+                  <span>{ocrState.progress}%</span>
+                </div>
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface">
+                  <div
+                    className="h-full rounded-full bg-brand-700 transition-all"
+                    style={{ width: `${Math.max(8, ocrState.progress)}%` }}
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {ocrState.status === "success" ? (
+              <div className="rounded-md border border-green-200 bg-green-50 p-4 text-sm leading-6 text-green-900">
+                <div className="flex gap-3">
+                  <CheckCircle2 aria-hidden="true" className="mt-0.5 shrink-0" size={18} />
+                  <p>
+                    OCR listo para <strong>{ocrState.fileName}</strong>. Ya se
+                    envio al analizador.
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            {ocrState.status === "error" ? (
+              <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm leading-6 text-redRisk">
+                {ocrState.message}
+              </div>
+            ) : null}
+
+            {imagePreviewUrl ? (
+              <div className="overflow-hidden rounded-md border border-line bg-surface">
+                <img
+                  src={imagePreviewUrl}
+                  alt="Captura SUNARP cargada"
+                  className="max-h-48 w-full object-contain"
+                />
+              </div>
+            ) : null}
+
             <label className="grid min-w-0 gap-2">
               <span className="text-sm font-bold text-ink">
                 URL de evidencia
@@ -256,7 +419,7 @@ export function SunarpCopilot({
 
             <button
               type="submit"
-              disabled={state.status === "loading"}
+              disabled={state.status === "loading" || ocrState.status === "reading"}
               className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-ink px-5 text-sm font-bold text-white hover:bg-brand-900 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {state.status === "loading" ? (
