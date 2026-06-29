@@ -41,6 +41,21 @@ export type OperatorSourceEvidence = {
   updatedAt?: string;
 };
 
+type ParsedOperatorResult = {
+  sourceId: string;
+  sourceName: string;
+  plate: string;
+  statusSuggestion: SourceStatus;
+  confidenceLevel: ConfidenceLevel;
+  summary: string;
+  alerts: string[];
+  fieldRows: Array<{
+    label: string;
+    value: string;
+  }>;
+  extractedFields: unknown;
+};
+
 function operatorCodeForPlate(plate: string) {
   return `OP-${compactPlate(plate)}`;
 }
@@ -170,6 +185,21 @@ export async function saveSunarpOperatorEvidence(input: {
   rawText: string;
   evidenceUrl?: string;
 }) {
+  return saveOperatorEvidence({
+    ...input,
+    sourceCategory: "registral",
+    ingestion: "operator_ocr"
+  });
+}
+
+export async function saveOperatorEvidence(input: {
+  plate: string;
+  result: ParsedOperatorResult;
+  sourceCategory: string;
+  rawText: string;
+  evidenceUrl?: string;
+  ingestion?: string;
+}) {
   if (!isSupabaseConfigured()) {
     return undefined;
   }
@@ -190,7 +220,7 @@ export async function saveSunarpOperatorEvidence(input: {
     alerts: input.result.alerts,
     evidenceText: input.rawText,
     savedAt: checkedAt,
-    ingestion: "operator_ocr"
+    ingestion: input.ingestion ?? "operator_evidence"
   };
 
   const { data: existingSource, error: existingError } = await supabase
@@ -234,7 +264,7 @@ export async function saveSunarpOperatorEvidence(input: {
     .insert({
       check_id: check.id,
       source_name: input.result.sourceName,
-      source_category: "registral",
+      source_category: input.sourceCategory,
       status: input.result.statusSuggestion,
       confidence_level: input.result.confidenceLevel,
       summary: input.result.summary,

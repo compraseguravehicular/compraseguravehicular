@@ -1,20 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { SunarpCopilot } from "@/components/operator/sunarp-copilot";
+import { SoatCopilot } from "@/components/operator/soat-copilot";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 
 export const metadata: Metadata = {
-  title: "Copiloto vendedor",
+  title: "Copiloto SOAT / APESEG",
   description:
-    "Copiloto operativo para consultar fuentes vehiculares, capturar evidencia y convertir resultados en reporte.",
+    "Copiloto operativo para capturar evidencia SOAT/APESEG por placa y convertirla en datos estructurados para reporte.",
   robots: {
     index: false,
     follow: false
   }
 };
 
-export default function OperatorPage() {
+export default function SoatOperatorPage() {
   return (
     <>
       <SiteHeader />
@@ -25,23 +25,23 @@ export default function OperatorPage() {
               Operacion asistida
             </p>
             <h1 className="mt-3 max-w-4xl text-4xl font-black tracking-normal sm:text-5xl">
-              Copiloto vendedor para fuentes oficiales
+              Copiloto SOAT / APESEG
             </h1>
             <p className="mt-5 max-w-3xl text-base leading-7 text-white/75">
-              Empieza con SUNARP o SOAT/APESEG: el sistema guia la consulta,
-              analiza la evidencia y prepara resumen, campos y alertas para
-              vender con rapidez.
+              Flujo validado contra el portal real: resuelve el CAPTCHA oficial,
+              captura la tabla de resultado y el sistema guarda vigencia,
+              aseguradora, estado y alertas en el reporte vivo.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link
                 href="/operador"
-                className="inline-flex min-h-11 items-center justify-center rounded-md bg-white px-4 text-sm font-bold text-ink"
+                className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/25 px-4 text-sm font-bold text-white hover:bg-white hover:text-ink"
               >
                 SUNARP
               </Link>
               <Link
                 href="/operador/soat"
-                className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/25 px-4 text-sm font-bold text-white hover:bg-white hover:text-ink"
+                className="inline-flex min-h-11 items-center justify-center rounded-md bg-white px-4 text-sm font-bold text-ink"
               >
                 SOAT / APESEG
               </Link>
@@ -50,7 +50,7 @@ export default function OperatorPage() {
         </section>
 
         <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-          <SunarpCopilot initialPlate="5075cd" />
+          <SoatCopilot initialPlate="5075cd" />
         </section>
       </main>
       <SiteFooter />
