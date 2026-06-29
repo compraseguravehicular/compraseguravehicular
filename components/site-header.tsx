@@ -26,6 +26,9 @@ export function SiteHeader() {
           <Link href="/fuentes" className="hover:text-white">
             Fuentes
           </Link>
+          <Link href="/operador" className="hover:text-white">
+            Operador
+          </Link>
           <Link href="/panel" className="hover:text-white">
             Panel
           </Link>

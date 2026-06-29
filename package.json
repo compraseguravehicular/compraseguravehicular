@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "operator:sunarp": "node workers/sunarp-supervised.mjs",
     "lint": "next lint"
   },
   "dependencies": {
