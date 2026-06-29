@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -51,6 +51,8 @@ type OcrProgressMessage = {
   progress?: number;
 };
 
+type ImageInputSource = "upload" | "drop" | "paste";
+
 function cleanPlate(value: string) {
   return value.toUpperCase().replace(/[^A-Z0-9-]/g, "");
 }
@@ -67,6 +69,22 @@ function statusLabel(value: string) {
   return "Revisar captura";
 }
 
+function imageFileName(file: File, source: ImageInputSource) {
+  if (file.name.trim()) {
+    return file.name;
+  }
+
+  if (source === "paste") {
+    return "screenshot-pegado.png";
+  }
+
+  if (source === "drop") {
+    return "captura-arrastrada.png";
+  }
+
+  return "captura-sunarp.png";
+}
+
 export function SunarpCopilot({
   initialPlate = "5075cd",
   sourceResultId
@@ -80,8 +98,10 @@ export function SunarpCopilot({
   const [state, setState] = useState<ParseState>({ status: "idle" });
   const [ocrState, setOcrState] = useState<OcrState>({ status: "idle" });
   const [imagePreviewUrl, setImagePreviewUrl] = useState("");
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
   const normalizedPlate = useMemo(() => cleanPlate(plate), [plate]);
   const officialUrl = "https://consultavehicular.sunarp.gob.pe/";
+  const imageInputDisabled = ocrState.status === "reading" || state.status === "loading";
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -103,7 +123,7 @@ export function SunarpCopilot({
     await navigator.clipboard.writeText(normalizedPlate);
   }
 
-  async function submitEvidence(textToAnalyze = rawText) {
+  const submitEvidence = useCallback(async (textToAnalyze = rawText) => {
     const evidence = textToAnalyze.trim();
 
     if (evidence.length < 20) {
@@ -155,18 +175,31 @@ export function SunarpCopilot({
         message: "No se pudo conectar con el servidor."
       });
     }
-  }
+  }, [evidenceUrl, normalizedPlate, rawText, sourceResultId]);
 
   async function analyzeEvidence(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await submitEvidence();
   }
 
-  async function handleImageUpload(event: React.ChangeEvent<HTMLInputElement>) {
-    const input = event.currentTarget;
-    const file = event.target.files?.[0];
+  const processImageFile = useCallback(async (file: File, source: ImageInputSource) => {
+    const fileName = imageFileName(file, source);
 
-    if (!file) {
+    if (imageInputDisabled) {
+      setOcrState({
+        status: "error",
+        fileName,
+        message: "Espera a que termine el OCR actual antes de cargar otra captura."
+      });
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setOcrState({
+        status: "error",
+        fileName,
+        message: "El archivo debe ser una imagen PNG, JPG o captura compatible."
+      });
       return;
     }
 
@@ -179,7 +212,7 @@ export function SunarpCopilot({
       return previewUrl;
     });
     setState({ status: "idle" });
-    setOcrState({ status: "reading", fileName: file.name, progress: 0 });
+    setOcrState({ status: "reading", fileName, progress: 0 });
 
     try {
       const { recognize } = await import("tesseract.js");
@@ -188,7 +221,7 @@ export function SunarpCopilot({
           if (message.status === "recognizing text" && typeof message.progress === "number") {
             setOcrState({
               status: "reading",
-              fileName: file.name,
+              fileName,
               progress: Math.round(message.progress * 100)
             });
           }
@@ -199,25 +232,97 @@ export function SunarpCopilot({
       if (extractedText.length < 20) {
         setOcrState({
           status: "error",
-          fileName: file.name,
+          fileName,
           message: "El OCR no pudo leer suficiente texto. Sube una captura mas nitida o acercada al resultado."
         });
         return;
       }
 
       setRawText(extractedText);
-      setOcrState({ status: "success", fileName: file.name, progress: 100 });
+      setOcrState({ status: "success", fileName, progress: 100 });
       await submitEvidence(extractedText);
     } catch {
       setOcrState({
         status: "error",
-        fileName: file.name,
+        fileName,
         message: "No se pudo leer la imagen. Prueba con PNG/JPG nitido o pega el texto manualmente."
       });
+    }
+  }, [imageInputDisabled, submitEvidence]);
+
+  async function handleImageUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const input = event.currentTarget;
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      await processImageFile(file, "upload");
     } finally {
       input.value = "";
     }
   }
+
+  function handleImageDragOver(event: React.DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+
+    if (!imageInputDisabled) {
+      setIsDraggingImage(true);
+    }
+  }
+
+  function handleImageDragLeave(event: React.DragEvent<HTMLLabelElement>) {
+    const nextTarget = event.relatedTarget;
+
+    if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
+      return;
+    }
+
+    setIsDraggingImage(false);
+  }
+
+  async function handleImageDrop(event: React.DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setIsDraggingImage(false);
+
+    const imageFile = Array.from(event.dataTransfer.files).find((file) =>
+      file.type.startsWith("image/")
+    );
+
+    if (!imageFile) {
+      setOcrState({
+        status: "error",
+        message: "Suelta una imagen valida de la captura SUNARP."
+      });
+      return;
+    }
+
+    await processImageFile(imageFile, "drop");
+  }
+
+  useEffect(() => {
+    function handleClipboardPaste(event: ClipboardEvent) {
+      const imageItem = Array.from(event.clipboardData?.items ?? []).find((item) =>
+        item.kind === "file" && item.type.startsWith("image/")
+      );
+      const imageFile = imageItem?.getAsFile();
+
+      if (!imageFile) {
+        return;
+      }
+
+      event.preventDefault();
+      void processImageFile(imageFile, "paste");
+    }
+
+    window.addEventListener("paste", handleClipboardPaste);
+
+    return () => {
+      window.removeEventListener("paste", handleClipboardPaste);
+    };
+  }, [processImageFile]);
 
   async function copySellerScript() {
     if (state.status !== "success") {
@@ -287,7 +392,7 @@ export function SunarpCopilot({
             {[
               ["1", "Copiar placa", "Usa la placa normalizada."],
               ["2", "Abrir fuente", "Completa la verificacion oficial."],
-              ["3", "Subir captura", "El OCR lee la imagen del resultado."],
+              ["3", "Agregar captura", "Sube, arrastra o pega la imagen."],
               ["4", "Analizar", "Resumen y campos listos para reporte."]
             ].map(([step, title, detail]) => (
               <div key={step} className="flex gap-3">
@@ -325,17 +430,28 @@ export function SunarpCopilot({
           </label>
 
           <div className="grid min-w-0 gap-4">
-            <label className="grid min-w-0 cursor-pointer gap-3 rounded-md border-2 border-dashed border-brand-200 bg-brand-50 p-4 transition hover:border-brand-700 hover:bg-white">
+            <label
+              onDragOver={handleImageDragOver}
+              onDragLeave={handleImageDragLeave}
+              onDrop={handleImageDrop}
+              className={[
+                "grid min-w-0 cursor-pointer gap-3 rounded-md border-2 border-dashed p-4 transition",
+                isDraggingImage
+                  ? "border-brand-700 bg-white shadow-panel ring-2 ring-brand-200"
+                  : "border-brand-200 bg-brand-50 hover:border-brand-700 hover:bg-white",
+                imageInputDisabled ? "opacity-80" : ""
+              ].join(" ")}
+            >
               <span className="flex items-center gap-2 text-sm font-bold text-ink">
                 <FileImage aria-hidden="true" size={18} />
-                Subir imagen SUNARP
+                Captura SUNARP
               </span>
               <input
                 type="file"
                 accept="image/*"
                 onChange={handleImageUpload}
                 className="sr-only"
-                disabled={ocrState.status === "reading" || state.status === "loading"}
+                disabled={imageInputDisabled}
               />
               <span className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-brand-700 px-4 text-sm font-bold text-white">
                 {ocrState.status === "reading" ? (
@@ -346,9 +462,14 @@ export function SunarpCopilot({
                 Elegir captura
               </span>
               <span className="text-xs leading-5 text-slateText">
-                Acepta PNG, JPG o captura de pantalla. El sistema lee la imagen
-                y analiza la evidencia automaticamente.
+                Arrastra la imagen aqui, pegala desde el portapapeles o elige
+                un archivo PNG/JPG.
               </span>
+              {isDraggingImage ? (
+                <span className="rounded-md bg-white px-3 py-2 text-center text-xs font-bold text-brand-700">
+                  Suelta la captura para leerla
+                </span>
+              ) : null}
             </label>
 
             {ocrState.status === "reading" ? (
