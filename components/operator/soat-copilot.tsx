@@ -534,6 +534,8 @@ export function SoatCopilot({
                 <p>
                   APESEG usa CAPTCHA propio. El sistema no lo salta: analiza el
                   resultado despues de que tu completes la validacion oficial.
+                  Si ves Error 403 o Acceso no autorizado, esa pantalla no es
+                  resultado SOAT y no debe guardarse como evidencia.
                 </p>
               </div>
             </div>

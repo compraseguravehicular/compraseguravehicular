@@ -34,6 +34,11 @@ const parseSoatSchema = z.object({
     .transform((value) => (value ? value : undefined))
 });
 
+const persistableStatuses = new Set([
+  "consulted_no_alert",
+  "consulted_with_alert"
+]);
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -51,6 +56,9 @@ export async function POST(request: Request) {
     }
 
     const result = parseSoatEvidence(parsed.data);
+    const shouldSaveOperatorEvidence = persistableStatuses.has(
+      result.statusSuggestion
+    );
     const [savedSource, savedOperatorEvidence] = await Promise.all([
       parsed.data.sourceResultId
         ? updateOrderSourceResult({
@@ -61,14 +69,16 @@ export async function POST(request: Request) {
             evidenceUrl: parsed.data.evidenceUrl
           })
         : Promise.resolve(undefined),
-      saveOperatorEvidence({
-        plate: parsed.data.plate,
-        result,
-        sourceCategory: "circulacion",
-        rawText: parsed.data.rawText,
-        evidenceUrl: parsed.data.evidenceUrl,
-        ingestion: "operator_ocr"
-      })
+      shouldSaveOperatorEvidence
+        ? saveOperatorEvidence({
+            plate: parsed.data.plate,
+            result,
+            sourceCategory: "circulacion",
+            rawText: parsed.data.rawText,
+            evidenceUrl: parsed.data.evidenceUrl,
+            ingestion: "operator_ocr"
+          })
+        : Promise.resolve(undefined)
     ]);
 
     return NextResponse.json({

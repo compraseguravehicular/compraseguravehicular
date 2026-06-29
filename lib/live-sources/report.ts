@@ -31,6 +31,10 @@ const pendingStatuses = new Set([
 ]);
 
 const structuredResultStatuses = new Set(["api_result", "operator_evidence"]);
+const mergeableOperatorStatuses = new Set([
+  "consulted_no_alert",
+  "consulted_with_alert"
+]);
 
 function buildMetrics(sources: LiveSourceCheck[]): LiveReportMetrics {
   const checked = sources.length;
@@ -298,8 +302,10 @@ function mergeOperatorEvidence(
   }
 
   return sources.map((source) => {
-    const evidence = evidenceRows.find((row) =>
-      sourceMatchesEvidence(source, row)
+    const evidence = evidenceRows.find(
+      (row) =>
+        mergeableOperatorStatuses.has(row.status) &&
+        sourceMatchesEvidence(source, row)
     );
 
     if (!evidence) {

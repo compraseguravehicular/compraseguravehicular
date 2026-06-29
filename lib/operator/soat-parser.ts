@@ -315,6 +315,24 @@ function parseDateValue(value?: string) {
   return undefined;
 }
 
+function detectBlockingResult(evidenceText: string) {
+  const normalized = normalizeForMatching(evidenceText);
+
+  if (/ERROR\s*403|ACCESO\s+NO\s+AUTORIZADO|NO\s+AUTORIZADO/.test(normalized)) {
+    return "APESEG no devolvio resultado SOAT: el portal mostro Error 403 / Acceso no autorizado.";
+  }
+
+  if (/ERROR\s+DE\s+CONEXION\s+CON\s+LA\s+API|ERROR\s+DE\s+CONEXION/.test(normalized)) {
+    return "APESEG no devolvio resultado SOAT: el portal mostro error de conexion con la API.";
+  }
+
+  if (/CAPTCHA\s+INCORRECTO|INGRESA\s+EL\s+CAPTCHA|CAPTCHA\s+REQUERIDO/.test(normalized)) {
+    return "APESEG no devolvio resultado SOAT: falta resolver correctamente el CAPTCHA oficial.";
+  }
+
+  return undefined;
+}
+
 function scoreFields(fields: SoatVehicleFields, requestedPlate: string) {
   const fieldCount = Object.values(fields).filter(Boolean).length;
   const plateMatches = fields.plate
@@ -327,7 +345,7 @@ function scoreFields(fields: SoatVehicleFields, requestedPlate: string) {
   return Math.min(100, coreScore + plateScore + soatScore);
 }
 
-function alertTerms(fields: SoatVehicleFields, confidenceScore: number) {
+function alertTerms(fields: SoatVehicleFields) {
   const alerts: string[] = [];
   const normalizedStatus = normalizeForMatching(fields.status ?? "");
   const endDate = parseDateValue(fields.endDate);
@@ -356,11 +374,27 @@ function alertTerms(fields: SoatVehicleFields, confidenceScore: number) {
     }
   }
 
-  if (confidenceScore < 45) {
-    alerts.push("La evidencia SOAT no tiene suficientes campos estructurados; repetir captura o copiar tabla completa.");
+  return [...new Set(alerts)];
+}
+
+function statusFromSoatEvidence({
+  blockingReason,
+  confidenceScore,
+  alerts
+}: {
+  blockingReason?: string;
+  confidenceScore: number;
+  alerts: string[];
+}): SourceStatus {
+  if (blockingReason) {
+    return "failed";
   }
 
-  return [...new Set(alerts)];
+  if (confidenceScore < 45) {
+    return "requires_manual_document";
+  }
+
+  return alerts.length > 0 ? "consulted_with_alert" : "consulted_no_alert";
 }
 
 function buildSummary(
@@ -400,6 +434,7 @@ export function parseSoatEvidence(input: {
   const evidenceText = normalizeEvidenceText(input.rawText);
   const searchText = normalizeForMatching(evidenceText);
   const extractedFields: SoatVehicleFields = {};
+  const blockingReason = detectBlockingResult(evidenceText);
 
   for (const field of fieldDefinitions) {
     const value = extractField(evidenceText, searchText, field);
@@ -413,16 +448,25 @@ export function parseSoatEvidence(input: {
     extractedFields.plate = plate;
   }
 
-  const confidenceScore = scoreFields(extractedFields, plate);
-  const alerts = alertTerms(extractedFields, confidenceScore);
+  const fieldConfidenceScore = scoreFields(extractedFields, plate);
+  const confidenceScore = blockingReason ? Math.min(20, fieldConfidenceScore) : fieldConfidenceScore;
+  const alerts = blockingReason
+    ? [blockingReason]
+    : [
+        ...alertTerms(extractedFields),
+        ...(confidenceScore < 45
+          ? [
+              "La evidencia SOAT no tiene suficientes campos estructurados; repetir captura o copiar tabla completa."
+            ]
+          : [])
+      ];
   const confidenceLevel: ConfidenceLevel =
     confidenceScore >= 75 ? "Alta" : confidenceScore >= 45 ? "Media" : "Baja";
-  const statusSuggestion: SourceStatus =
-    alerts.length > 0
-      ? "consulted_with_alert"
-      : confidenceScore >= 45
-        ? "consulted_no_alert"
-        : "requires_manual_document";
+  const statusSuggestion = statusFromSoatEvidence({
+    blockingReason,
+    confidenceScore,
+    alerts
+  });
   const summary = buildSummary(plate, extractedFields, alerts, confidenceScore);
   const fieldRows = fieldRowsOrder
     .map((field) => ({
